@@ -327,7 +327,7 @@ export const PlayerDetailPage: React.FC = () => {
 			title: '',
 			body: '',
 			customSender: '',
-			attachments: [] as { dropId: number | null; dropType: number; quantity: number }[],
+			attachments: [] as { id: string; dropId: number | null; dropType: number; quantity: number }[],
 		},
 		onSubmit: async ({ value }) => {
 			const attachments = value.attachments
@@ -803,7 +803,7 @@ export const PlayerDetailPage: React.FC = () => {
 											onClick={() =>
 												mailForm.setFieldValue('attachments', [
 													...mailForm.state.values.attachments,
-													{ dropId: null, dropType: DROP_TYPES.ITEM, quantity: 1 },
+													{ id: crypto.randomUUID(), dropId: null, dropType: DROP_TYPES.ITEM, quantity: 1 },
 												])
 											}
 										>
@@ -813,10 +813,7 @@ export const PlayerDetailPage: React.FC = () => {
 									<mailForm.Subscribe selector={(state) => state.values.attachments}>
 										{(attachments) =>
 											attachments.map((attachment, idx) => (
-												<div
-													key={`mail-attach-${attachment.dropId ?? 'new'}-${attachment.dropType}-${attachment.quantity}`}
-													className="grid gap-3 md:grid-cols-4"
-												>
+												<div key={attachment.id} className="grid gap-3 md:grid-cols-4">
 													<mailForm.Field name={`attachments[${idx}].dropId`}>
 														{(field) => (
 															<div className="space-y-1 md:col-span-2">
