@@ -41,6 +41,7 @@ export const PlayerDetailPage: React.FC = () => {
 	const [addShipOpen, setAddShipOpen] = useState(false)
 	const [addSkinOpen, setAddSkinOpen] = useState(false)
 	const [shipTypeFilter, setShipTypeFilter] = useState<number | null>(null)
+	const [skinShipFilter, setSkinShipFilter] = useState<number | null>(null)
 	const [inventoryEditOpen, setInventoryEditOpen] = useState(false)
 	const [resourceEditOpen, setResourceEditOpen] = useState(false)
 	const [kickModalOpen, setKickModalOpen] = useState(false)
@@ -70,6 +71,11 @@ export const PlayerDetailPage: React.FC = () => {
 	const shipsQuery = useQuery({
 		queryKey: ['player', playerNumericId, 'ships'],
 		queryFn: () => api.getPlayerShips(playerNumericId),
+		enabled: Number.isFinite(playerNumericId),
+	})
+	const skinsQuery = useQuery({
+		queryKey: ['player', playerNumericId, 'skins'],
+		queryFn: () => api.getPlayerSkins(playerNumericId),
 		enabled: Number.isFinite(playerNumericId),
 	})
 	const itemsQuery = useQuery({
@@ -110,6 +116,15 @@ export const PlayerDetailPage: React.FC = () => {
 			} while (offset < total)
 			return { data: { skins: allSkins } }
 		},
+	})
+	const shipSkinsQuery = useQuery({
+		queryKey: ['ship', 'skins', skinShipFilter],
+		queryFn: () => {
+			if (skinShipFilter === null) throw new Error('skinShipFilter is null')
+			const shipIdForSkins = Number(skinShipFilter.toString().slice(0, -1))
+			return api.getShipSkins(shipIdForSkins)
+		},
+		enabled: skinShipFilter !== null,
 	})
 
 	const updateProfile = useMutation({
@@ -161,8 +176,16 @@ export const PlayerDetailPage: React.FC = () => {
 	})
 
 	const giveSkinMutation = useMutation({
-		mutationFn: (payload: { skinId: number }) => api.giveSkin(playerNumericId, { skin_id: payload.skinId }),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['player', playerNumericId, 'skins'] }),
+		mutationFn: (payload: { skinId: number; expiresAt?: string }) =>
+			api.giveSkin(playerNumericId, { skin_id: payload.skinId, expires_at: payload.expiresAt }),
+		onSuccess: () => {
+			setAddSkinOpen(false)
+			setSkinShipFilter(null)
+			queryClient.invalidateQueries({ queryKey: ['player', playerNumericId] })
+			queryClient.invalidateQueries({ queryKey: ['player', playerNumericId, 'skins'] })
+			queryClient.refetchQueries({ queryKey: ['player', playerNumericId] })
+			queryClient.refetchQueries({ queryKey: ['player', playerNumericId, 'skins'] })
+		},
 	})
 
 	const banMutation = useMutation({
@@ -190,11 +213,13 @@ export const PlayerDetailPage: React.FC = () => {
 	const player = playerQuery.data?.data
 	const resources = resourcesQuery.data?.data.resources ?? []
 	const ships = shipsQuery.data?.data.ships ?? []
+	const playerSkins = skinsQuery.data?.data.skins ?? []
 	const items = itemsQuery.data?.data.items ?? []
 
 	const shipsCatalog = shipsCatalogQuery.data?.data.ships ?? []
 	const itemsCatalog = itemsCatalogQuery.data?.data.items ?? []
 	const skinsCatalog = skinsCatalogQuery.data?.data.skins ?? []
+	const shipSkins = shipSkinsQuery.data?.data.skins ?? []
 
 	const itemMap = useMemo(() => {
 		return new Map(itemsCatalog.map((item) => [item.id, item]))
@@ -265,9 +290,30 @@ export const PlayerDetailPage: React.FC = () => {
 				label: skin.name,
 				id: skin.id,
 				type: DROP_TYPES.SKIN,
-				subLabel: `Ship: ${skin.ship_name} • ID: ${skin.id}`,
+				subLabel: `Ship: ${skin.ship_name} • Skin ID: ${skin.id}`,
 			})),
 		[skinsCatalog],
+	)
+
+	const skinShipFilterOptions = useMemo<DropOption[]>(
+		() => [
+			{ id: 0, label: 'All Ships', type: DROP_TYPES.SHIP },
+			...shipsCatalog.map((ship) => ({ id: ship.id, label: ship.name, type: DROP_TYPES.SHIP })),
+		],
+		[shipsCatalog],
+	)
+
+	const filteredSkinOptions = useMemo<DropOption[]>(
+		() =>
+			skinShipFilter === null
+				? skinOptions
+				: shipSkins.map((skin) => ({
+						label: skin.name,
+						id: skin.id,
+						type: DROP_TYPES.SKIN,
+						subLabel: `Skin ID: ${skin.id}`,
+					})),
+		[skinOptions, skinShipFilter, shipSkins],
 	)
 
 	const dropOptions = useMemo<DropOption[]>(
@@ -363,11 +409,12 @@ export const PlayerDetailPage: React.FC = () => {
 	const addSkinForm = useForm({
 		defaultValues: {
 			skinId: null as number | null,
+			expiresAt: '',
 		},
 		onSubmit: async ({ value }) => {
 			if (value.skinId === null) return
-			await giveSkinMutation.mutateAsync({ skinId: value.skinId })
-			setAddSkinOpen(false)
+			const expiresAt = value.expiresAt ? new Date(value.expiresAt).toISOString() : undefined
+			await giveSkinMutation.mutateAsync({ skinId: value.skinId, expiresAt })
 			addSkinForm.reset()
 		},
 	})
@@ -659,16 +706,40 @@ export const PlayerDetailPage: React.FC = () => {
 			{activeTab === 'skins' ? (
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle>Skins</CardTitle>
+						<CardTitle>Skins ({playerSkins.length})</CardTitle>
 						<Button size="sm" onClick={() => setAddSkinOpen(true)}>
 							<ImageIcon className="mr-2 h-4 w-4" />
 							Give Skin
 						</Button>
 					</CardHeader>
 					<CardContent>
-						<p className="text-sm text-muted-foreground">
-							Skins allow customizing ship appearances. Give skins to this commander using the button above.
-						</p>
+						<table className="w-full text-left text-sm">
+							<thead className="bg-muted text-muted-foreground">
+								<tr>
+									<th className="px-4 py-2">Skin ID</th>
+									<th className="px-4 py-2">Name</th>
+									<th className="px-4 py-2">Expires At</th>
+								</tr>
+							</thead>
+							<tbody>
+								{playerSkins.map((skin) => (
+									<tr key={skin.skin_id} className="border-t border-border hover:bg-muted/20">
+										<td className="px-4 py-2 font-mono text-muted-foreground">{skin.skin_id}</td>
+										<td className="px-4 py-2 font-medium">{skin.name}</td>
+										<td className="px-4 py-2">
+											{skin.expires_at ? new Date(skin.expires_at).toLocaleString() : 'Never'}
+										</td>
+									</tr>
+								))}
+								{playerSkins.length === 0 ? (
+									<tr>
+										<td className="px-4 py-8 text-center text-muted-foreground" colSpan={3}>
+											No skins yet.
+										</td>
+									</tr>
+								) : null}
+							</tbody>
+						</table>
 					</CardContent>
 				</Card>
 			) : null}
@@ -993,7 +1064,14 @@ export const PlayerDetailPage: React.FC = () => {
 				</form>
 			</Modal>
 
-			<Modal isOpen={addSkinOpen} onClose={() => setAddSkinOpen(false)} title="Give Skin">
+			<Modal
+				isOpen={addSkinOpen}
+				onClose={() => {
+					setAddSkinOpen(false)
+					setSkinShipFilter(null)
+				}}
+				title="Give Skin"
+			>
 				<form
 					onSubmit={(event) => {
 						event.preventDefault()
@@ -1001,12 +1079,22 @@ export const PlayerDetailPage: React.FC = () => {
 					}}
 					className="space-y-4"
 				>
+					<div className="space-y-2">
+						<span className="text-sm font-medium">Filter by Ship</span>
+						<SearchableSelect
+							options={skinShipFilterOptions}
+							whitelist={[DROP_TYPES.SHIP]}
+							value={skinShipFilter !== null ? { id: skinShipFilter, type: DROP_TYPES.SHIP } : null}
+							onChange={(selection) => setSkinShipFilter(selection.id === 0 ? null : selection.id)}
+							placeholder="Search ships..."
+						/>
+					</div>
 					<addSkinForm.Field name="skinId">
 						{(field) => (
 							<div className="space-y-2">
 								<span className="text-sm font-medium">Select Skin</span>
 								<SearchableSelect
-									options={dropOptions}
+									options={filteredSkinOptions}
 									whitelist={[DROP_TYPES.SKIN]}
 									value={field.state.value !== null ? { id: field.state.value, type: DROP_TYPES.SKIN } : null}
 									onChange={(selection) => field.handleChange(selection.id)}
@@ -1015,8 +1103,33 @@ export const PlayerDetailPage: React.FC = () => {
 							</div>
 						)}
 					</addSkinForm.Field>
+					<addSkinForm.Field name="expiresAt">
+						{(field) => {
+							const fieldId = 'skin-expires-at'
+							return (
+								<div className="space-y-2">
+									<label htmlFor={fieldId} className="text-sm font-medium">
+										Expires At (optional)
+									</label>
+									<Input
+										id={fieldId}
+										type="datetime-local"
+										value={field.state.value}
+										onChange={(event) => field.handleChange(event.target.value)}
+									/>
+								</div>
+							)
+						}}
+					</addSkinForm.Field>
 					<div className="flex justify-end gap-2 pt-2">
-						<Button type="button" variant="ghost" onClick={() => setAddSkinOpen(false)}>
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={() => {
+								setAddSkinOpen(false)
+								setSkinShipFilter(null)
+							}}
+						>
 							Cancel
 						</Button>
 						<Button type="submit">Give Skin</Button>

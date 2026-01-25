@@ -17,6 +17,7 @@ import type {
 	PlayerListResponse,
 	PlayerResourceResponse,
 	PlayerShipResponse,
+	PlayerSkinResponse,
 	ResourceUpdateRequest,
 	SendMailRequest,
 	ServerMaintenanceResponse,
@@ -25,6 +26,7 @@ import type {
 	ServerStatusResponse,
 	ServerUptimeResponse,
 	ShipListResponse,
+	ShipSkinListResponse,
 	SkinListResponse,
 	UpdatePlayerItemQuantityRequest,
 } from '../types'
@@ -118,10 +120,11 @@ export const api = {
 			body: JSON.stringify(payload),
 		}),
 	giveSkin: (id: number, payload: GiveSkinRequest) =>
-		request<void>(`/players/${id}/give-skin`, {
+		requestVoid(`/players/${id}/give-skin`, {
 			method: 'POST',
 			body: JSON.stringify(payload),
 		}),
+	getPlayerSkins: (id: number) => request<PlayerSkinResponse>(`/players/${id}/skins`),
 	banPlayer: (id: number, payload: BanPlayerRequest) =>
 		request<void>(`/players/${id}/ban`, {
 			method: 'POST',
@@ -148,6 +151,7 @@ export const api = {
 		nationality?: number
 		name?: string
 	}) => request<ShipListResponse>(`/ships${buildParams(params)}`),
+	getShipSkins: (shipId: number) => request<ShipSkinListResponse>(`/ships/${shipId}/skins`),
 	getSkins: (params: { offset?: number; limit?: number }) => request<SkinListResponse>(`/skins${buildParams(params)}`),
 	getItems: (params: { offset?: number; limit?: number }) => request<ItemListResponse>(`/items${buildParams(params)}`),
 

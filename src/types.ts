@@ -61,6 +61,16 @@ export interface PlayerItemResponse {
 	items: PlayerItemEntry[]
 }
 
+export interface PlayerSkinEntry {
+	expires_at: string
+	name: string
+	skin_id: number
+}
+
+export interface PlayerSkinResponse {
+	skins: PlayerSkinEntry[]
+}
+
 export interface ShipSummary {
 	build_time: number
 	id: number
@@ -88,6 +98,17 @@ export interface SkinSummary {
 
 export interface SkinListResponse {
 	skins: SkinSummary[]
+	meta: PaginationMeta
+}
+
+export interface ShipSkinSummary {
+	id: number
+	name: string
+	ship_group: number
+}
+
+export interface ShipSkinListResponse {
+	skins: ShipSkinSummary[]
 	meta: PaginationMeta
 }
 
@@ -187,6 +208,7 @@ export interface GiveShipRequest {
 
 export interface GiveSkinRequest {
 	skin_id: number
+	expires_at?: string
 }
 
 export interface BanPlayerRequest {
