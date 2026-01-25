@@ -10,8 +10,6 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { api } from '../services/api'
 import type { ShipSummary } from '../types'
 
-const PAGE_SIZE = 200
-
 export const ShipDatabasePage: React.FC = () => {
 	const [name, setName] = useState('')
 	const [rarity, setRarity] = useState('')
@@ -29,23 +27,13 @@ export const ShipDatabasePage: React.FC = () => {
 			{ name: debouncedName, rarity: debouncedRarity, nationality: debouncedNationality, type: debouncedType },
 		],
 		queryFn: async () => {
-			let offset = 0
-			let total = 0
-			const allShips: ShipSummary[] = []
-			do {
-				const response = await api.getShips({
-					offset,
-					limit: PAGE_SIZE,
-					name: debouncedName || undefined,
-					rarity: debouncedRarity ? Number(debouncedRarity) : undefined,
-					nationality: debouncedNationality ? Number(debouncedNationality) : undefined,
-					type: debouncedType ? Number(debouncedType) : undefined,
-				})
-				allShips.push(...response.data.ships)
-				total = response.data.meta.total
-				offset += PAGE_SIZE
-			} while (offset < total)
-			return { ships: allShips, total }
+			const response = await api.getShips({
+				name: debouncedName || undefined,
+				rarity: debouncedRarity ? Number(debouncedRarity) : undefined,
+				nationality: debouncedNationality ? Number(debouncedNationality) : undefined,
+				type: debouncedType ? Number(debouncedType) : undefined,
+			})
+			return { ships: response.data.ships, total: response.data.meta.total }
 		},
 	})
 

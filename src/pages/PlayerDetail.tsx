@@ -85,37 +85,15 @@ export const PlayerDetailPage: React.FC = () => {
 	})
 	const shipsCatalogQuery = useQuery({
 		queryKey: ['ships', { all: true }],
-		queryFn: async () => {
-			let offset = 0
-			let total = 0
-			const allShips: ShipSummary[] = []
-			do {
-				const response = await api.getShips({ offset, limit: 200 })
-				allShips.push(...response.data.ships)
-				total = response.data.meta.total
-				offset += 200
-			} while (offset < total)
-			return { data: { ships: allShips } }
-		},
+		queryFn: () => api.getShips({}),
 	})
 	const itemsCatalogQuery = useQuery({
-		queryKey: ['items', { offset: 0, limit: 200 }],
-		queryFn: () => api.getItems({ offset: 0, limit: 200 }),
+		queryKey: ['items', { all: true }],
+		queryFn: () => api.getItems({}),
 	})
 	const skinsCatalogQuery = useQuery({
 		queryKey: ['skins', { all: true }],
-		queryFn: async () => {
-			let offset = 0
-			let total = 0
-			const allSkins: SkinSummary[] = []
-			do {
-				const response = await api.getSkins({ offset, limit: 200 })
-				allSkins.push(...response.data.skins)
-				total = response.data.meta.total
-				offset += 200
-			} while (offset < total)
-			return { data: { skins: allSkins } }
-		},
+		queryFn: () => api.getSkins({}),
 	})
 	const shipSkinsQuery = useQuery({
 		queryKey: ['ship', 'skins', skinShipFilter],
