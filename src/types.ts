@@ -185,6 +185,10 @@ export interface GiveShipRequest {
 	ship_id: number
 }
 
+export interface GiveSkinRequest {
+	skin_id: number
+}
+
 export interface BanPlayerRequest {
 	duration_sec?: number
 	lift_timestamp?: string
@@ -219,4 +223,9 @@ export interface ExchangeCodeRequest {
 	platform: string
 	quota: number
 	rewards: ExchangeReward[]
+}
+
+export interface ServerUptimeResponse {
+	uptime_human: string
+	uptime_sec: number
 }

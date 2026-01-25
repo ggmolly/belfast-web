@@ -8,6 +8,7 @@ import {
 	Droplets,
 	Edit2,
 	Gem,
+	Image as ImageIcon,
 	Mail,
 	Package,
 	Plus,
@@ -26,7 +27,7 @@ import { DROP_TYPES, type DropOption, type DropType, SearchableSelect } from '..
 import { api } from '../services/api'
 import type { ItemSummary, ShipSummary, SkinSummary } from '../types'
 
-type TabKey = 'overview' | 'ships' | 'inventory' | 'actions'
+type TabKey = 'overview' | 'ships' | 'inventory' | 'skins' | 'actions'
 
 export const PlayerDetailPage: React.FC = () => {
 	const { playerId } = useParams({ from: '/players/$playerId' })
@@ -38,6 +39,8 @@ export const PlayerDetailPage: React.FC = () => {
 	const [banModalOpen, setBanModalOpen] = useState(false)
 	const [addItemOpen, setAddItemOpen] = useState(false)
 	const [addShipOpen, setAddShipOpen] = useState(false)
+	const [addSkinOpen, setAddSkinOpen] = useState(false)
+	const [shipTypeFilter, setShipTypeFilter] = useState<number | null>(null)
 	const [inventoryEditOpen, setInventoryEditOpen] = useState(false)
 	const [resourceEditOpen, setResourceEditOpen] = useState(false)
 	const [kickModalOpen, setKickModalOpen] = useState(false)
@@ -157,6 +160,11 @@ export const PlayerDetailPage: React.FC = () => {
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['player', playerNumericId, 'ships'] }),
 	})
 
+	const giveSkinMutation = useMutation({
+		mutationFn: (payload: { skinId: number }) => api.giveSkin(playerNumericId, { skin_id: payload.skinId }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['player', playerNumericId, 'skins'] }),
+	})
+
 	const banMutation = useMutation({
 		mutationFn: (payload: { permanent: boolean; durationHours: number }) =>
 			api.banPlayer(playerNumericId, {
@@ -212,6 +220,32 @@ export const PlayerDetailPage: React.FC = () => {
 				subLabel: `ID: ${ship.id} • Rarity: ${ship.rarity}`,
 			})),
 		[shipsCatalog],
+	)
+
+	const shipTypeOptions = useMemo(
+		() => [
+			{ id: 1, label: 'Destroyer (DD)' },
+			{ id: 2, label: 'Light Cruiser (CL)' },
+			{ id: 3, label: 'Heavy Cruiser (CA)' },
+			{ id: 4, label: 'Battleship (BB)' },
+			{ id: 5, label: 'Aircraft Carrier (CV)' },
+			{ id: 6, label: 'Submarine (SS)' },
+			{ id: 7, label: 'Repair Ship' },
+			{ id: 8, label: 'Munitions Ship' },
+			{ id: 9, label: 'Submarine Tender' },
+			{ id: 10, label: 'Light Carrier (CVL)' },
+			{ id: 11, label: 'Aviation Battleship (BBV)' },
+			{ id: 12, label: 'Aviation Cruiser (CLV)' },
+		],
+		[],
+	)
+
+	const filteredShipOptions = useMemo<DropOption[]>(
+		() =>
+			shipOptions.filter((option) =>
+				shipTypeFilter === null ? true : shipsCatalog.find((ship) => ship.id === option.id)?.type === shipTypeFilter,
+			),
+		[shipOptions, shipTypeFilter, shipsCatalog],
 	)
 
 	const itemOptions = useMemo<DropOption[]>(
@@ -326,6 +360,18 @@ export const PlayerDetailPage: React.FC = () => {
 		},
 	})
 
+	const addSkinForm = useForm({
+		defaultValues: {
+			skinId: null as number | null,
+		},
+		onSubmit: async ({ value }) => {
+			if (value.skinId === null) return
+			await giveSkinMutation.mutateAsync({ skinId: value.skinId })
+			setAddSkinOpen(false)
+			addSkinForm.reset()
+		},
+	})
+
 	const inventoryEditForm = useForm({
 		defaultValues: {
 			quantity: 0,
@@ -433,7 +479,7 @@ export const PlayerDetailPage: React.FC = () => {
 			</div>
 
 			<div className="flex border-b border-border">
-				{(['overview', 'ships', 'inventory', 'actions'] as TabKey[]).map((tab) => (
+				{(['overview', 'ships', 'inventory', 'skins', 'actions'] as TabKey[]).map((tab) => (
 					<button
 						type="button"
 						key={tab}
@@ -606,6 +652,23 @@ export const PlayerDetailPage: React.FC = () => {
 								)
 							})}
 						</div>
+					</CardContent>
+				</Card>
+			) : null}
+
+			{activeTab === 'skins' ? (
+				<Card>
+					<CardHeader className="flex flex-row items-center justify-between">
+						<CardTitle>Skins</CardTitle>
+						<Button size="sm" onClick={() => setAddSkinOpen(true)}>
+							<ImageIcon className="mr-2 h-4 w-4" />
+							Give Skin
+						</Button>
+					</CardHeader>
+					<CardContent>
+						<p className="text-sm text-muted-foreground">
+							Skins allow customizing ship appearances. Give skins to this commander using the button above.
+						</p>
 					</CardContent>
 				</Card>
 			) : null}
@@ -870,7 +933,14 @@ export const PlayerDetailPage: React.FC = () => {
 				</form>
 			</Modal>
 
-			<Modal isOpen={addShipOpen} onClose={() => setAddShipOpen(false)} title="Commission Ship">
+			<Modal
+				isOpen={addShipOpen}
+				onClose={() => {
+					setAddShipOpen(false)
+					setShipTypeFilter(null)
+				}}
+				title="Commission Ship"
+			>
 				<form
 					onSubmit={(event) => {
 						event.preventDefault()
@@ -878,12 +948,27 @@ export const PlayerDetailPage: React.FC = () => {
 					}}
 					className="space-y-4"
 				>
+					<div className="space-y-2">
+						<span className="text-sm font-medium">Filter by Ship Type</span>
+						<select
+							className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+							value={shipTypeFilter ?? ''}
+							onChange={(event) => setShipTypeFilter(event.target.value ? Number(event.target.value) : null)}
+						>
+							<option value="">All Types</option>
+							{shipTypeOptions.map((type) => (
+								<option key={type.id} value={type.id}>
+									{type.label}
+								</option>
+							))}
+						</select>
+					</div>
 					<addShipForm.Field name="shipId">
 						{(field) => (
 							<div className="space-y-2">
 								<span className="text-sm font-medium">Select Ship</span>
 								<SearchableSelect
-									options={dropOptions}
+									options={filteredShipOptions}
 									whitelist={[DROP_TYPES.SHIP]}
 									value={field.state.value !== null ? { id: field.state.value, type: DROP_TYPES.SHIP } : null}
 									onChange={(selection) => field.handleChange(selection.id)}
@@ -893,10 +978,48 @@ export const PlayerDetailPage: React.FC = () => {
 						)}
 					</addShipForm.Field>
 					<div className="flex justify-end gap-2 pt-2">
-						<Button type="button" variant="ghost" onClick={() => setAddShipOpen(false)}>
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={() => {
+								setAddShipOpen(false)
+								setShipTypeFilter(null)
+							}}
+						>
 							Cancel
 						</Button>
 						<Button type="submit">Commission</Button>
+					</div>
+				</form>
+			</Modal>
+
+			<Modal isOpen={addSkinOpen} onClose={() => setAddSkinOpen(false)} title="Give Skin">
+				<form
+					onSubmit={(event) => {
+						event.preventDefault()
+						addSkinForm.handleSubmit()
+					}}
+					className="space-y-4"
+				>
+					<addSkinForm.Field name="skinId">
+						{(field) => (
+							<div className="space-y-2">
+								<span className="text-sm font-medium">Select Skin</span>
+								<SearchableSelect
+									options={dropOptions}
+									whitelist={[DROP_TYPES.SKIN]}
+									value={field.state.value !== null ? { id: field.state.value, type: DROP_TYPES.SKIN } : null}
+									onChange={(selection) => field.handleChange(selection.id)}
+									placeholder="Search by name or ID..."
+								/>
+							</div>
+						)}
+					</addSkinForm.Field>
+					<div className="flex justify-end gap-2 pt-2">
+						<Button type="button" variant="ghost" onClick={() => setAddSkinOpen(false)}>
+							Cancel
+						</Button>
+						<Button type="submit">Give Skin</Button>
 					</div>
 				</form>
 			</Modal>

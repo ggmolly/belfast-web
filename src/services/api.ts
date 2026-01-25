@@ -6,6 +6,7 @@ import type {
 	ExchangeCodeRequest,
 	GiveItemRequest,
 	GiveShipRequest,
+	GiveSkinRequest,
 	ItemListResponse,
 	KickPlayerRequest,
 	KickPlayerResponse,
@@ -22,6 +23,7 @@ import type {
 	ServerMaintenanceUpdate,
 	ServerMetricsResponse,
 	ServerStatusResponse,
+	ServerUptimeResponse,
 	ShipListResponse,
 	SkinListResponse,
 	UpdatePlayerItemQuantityRequest,
@@ -41,6 +43,16 @@ const request = async <T>(path: string, options?: RequestInit) => {
 	return data
 }
 
+const requestVoid = async (path: string, options?: RequestInit) => {
+	const res = await fetch(`${API_BASE}${path}`, {
+		headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+		...options,
+	})
+	if (!res.ok) {
+		throw new Error('Request failed')
+	}
+}
+
 const buildParams = (params: Record<string, string | number | boolean | undefined>) => {
 	const search = new URLSearchParams()
 	for (const [key, value] of Object.entries(params)) {
@@ -55,6 +67,7 @@ const buildParams = (params: Record<string, string | number | boolean | undefine
 export const api = {
 	getServerStatus: () => request<ServerStatusResponse>('/server/status'),
 	getServerMetrics: () => request<ServerMetricsResponse>('/server/metrics'),
+	getServerUptime: () => request<ServerUptimeResponse>('/server/uptime'),
 	getConnections: () => request<ConnectionSummary[]>('/server/connections'),
 	getMaintenanceStatus: () => request<ServerMaintenanceResponse>('/server/maintenance'),
 	toggleMaintenance: (payload: ServerMaintenanceUpdate) =>
@@ -62,6 +75,9 @@ export const api = {
 			method: 'POST',
 			body: JSON.stringify(payload),
 		}),
+	startServer: () => requestVoid('/server/start', { method: 'POST' }),
+	stopServer: () => requestVoid('/server/stop', { method: 'POST' }),
+	restartServer: () => requestVoid('/server/restart', { method: 'POST' }),
 
 	getPlayers: (params: {
 		offset?: number
@@ -98,6 +114,11 @@ export const api = {
 		}),
 	giveShip: (id: number, payload: GiveShipRequest) =>
 		request<void>(`/players/${id}/give-ship`, {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	giveSkin: (id: number, payload: GiveSkinRequest) =>
+		request<void>(`/players/${id}/give-skin`, {
 			method: 'POST',
 			body: JSON.stringify(payload),
 		}),

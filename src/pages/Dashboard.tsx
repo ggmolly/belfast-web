@@ -1,15 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Server, Users } from 'lucide-react'
+import { Activity, Play, Power, RotateCcw, Server, Users } from 'lucide-react'
 import type React from 'react'
+import { useMemo } from 'react'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { api } from '../services/api'
+
+const formatUptime = (seconds: number): string => {
+	const days = Math.floor(seconds / 86_400)
+	const hours = Math.floor((seconds % 86_400) / 3600)
+	const minutes = Math.floor((seconds % 3600) / 60)
+	const secs = Math.floor(seconds % 60)
+
+	const parts: string[] = []
+	if (days > 0) parts.push(`${days}d`)
+	if (hours > 0) parts.push(`${hours}h`)
+	if (minutes > 0) parts.push(`${minutes}m`)
+	if (secs > 0 || parts.length === 0) parts.push(`${secs}s`)
+
+	return parts.join(' ')
+}
 
 export const DashboardPage: React.FC = () => {
 	const queryClient = useQueryClient()
 	const statusQuery = useQuery({
 		queryKey: ['server', 'status'],
 		queryFn: api.getServerStatus,
+		refetchInterval: 10000,
+	})
+	const uptimeQuery = useQuery({
+		queryKey: ['server', 'uptime'],
+		queryFn: api.getServerUptime,
 		refetchInterval: 10000,
 	})
 	const metricsQuery = useQuery({
@@ -40,11 +61,38 @@ export const DashboardPage: React.FC = () => {
 		},
 	})
 
+	const startServerMutation = useMutation({
+		mutationFn: () => api.startServer(),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['server'] })
+		},
+	})
+
+	const stopServerMutation = useMutation({
+		mutationFn: () => api.stopServer(),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['server'] })
+		},
+	})
+
+	const restartServerMutation = useMutation({
+		mutationFn: () => api.restartServer(),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['server'] })
+		},
+	})
+
 	const totalPlayers = playersQuery.data?.data.meta.total ?? 0
 	const maintenanceEnabled = maintenanceQuery.data?.data.enabled ?? false
 	const status = statusQuery.data?.data
+	const uptime = uptimeQuery.data?.data
 	const metrics = metricsQuery.data?.data
 	const activeConnections = connectionsQuery.data?.data ?? []
+
+	const formattedUptime = useMemo(() => {
+		const secs = uptime?.uptime_sec ?? status?.uptime_sec ?? 0
+		return formatUptime(secs)
+	}, [uptime, status])
 
 	return (
 		<div className="space-y-6">
@@ -101,7 +149,7 @@ export const DashboardPage: React.FC = () => {
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">{status?.client_count ?? metrics?.client_count ?? 0}</div>
-						<p className="text-xs text-muted-foreground">Currently online</p>
+						<p className="text-xs text-muted-foreground">Uptime: {formattedUptime}</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -125,6 +173,38 @@ export const DashboardPage: React.FC = () => {
 								>
 									{maintenanceEnabled ? 'End Maintenance' : 'Start Maintenance'}
 								</Button>
+							</div>
+							<div className="flex items-center justify-between rounded-lg border border-border p-4">
+								<div>
+									<h4 className="font-semibold">Start/Stop/Restart</h4>
+									<p className="text-sm text-muted-foreground">Control server connection acceptance.</p>
+								</div>
+								<div className="flex gap-2">
+									<Button
+										variant="secondary"
+										onClick={() => startServerMutation.mutate()}
+										disabled={startServerMutation.isPending}
+									>
+										<Play className="mr-2 h-4 w-4" />
+										Start
+									</Button>
+									<Button
+										variant="destructive"
+										onClick={() => stopServerMutation.mutate()}
+										disabled={stopServerMutation.isPending}
+									>
+										<Power className="mr-2 h-4 w-4" />
+										Stop
+									</Button>
+									<Button
+										variant="secondary"
+										onClick={() => restartServerMutation.mutate()}
+										disabled={restartServerMutation.isPending}
+									>
+										<RotateCcw className="mr-2 h-4 w-4" />
+										Restart
+									</Button>
+								</div>
 							</div>
 						</div>
 					</CardContent>
