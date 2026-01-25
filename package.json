@@ -13,7 +13,13 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@mantine/hooks": "^8.3.13",
 		"@tailwindcss/vite": "^4.1.18",
+		"@tanstack/react-form": "^1.27.7",
+		"@tanstack/react-query": "^5.90.20",
+		"@tanstack/react-router": "^1.157.8",
+		"@tanstack/react-table": "^8.21.3",
+		"@tanstack/react-virtual": "^3.13.18",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"lucide-react": "^0.563.0",
