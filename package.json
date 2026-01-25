@@ -13,7 +13,6 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@mantine/hooks": "^8.3.13",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-form": "^1.27.7",
 		"@tanstack/react-query": "^5.90.20",

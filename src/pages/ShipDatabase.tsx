@@ -1,4 +1,3 @@
-import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -7,6 +6,7 @@ import type React from 'react'
 import { useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { api } from '../services/api'
 import type { ShipSummary } from '../types'
 
@@ -18,10 +18,10 @@ export const ShipDatabasePage: React.FC = () => {
 	const [nationality, setNationality] = useState('')
 	const [type, setType] = useState('')
 
-	const [debouncedName] = useDebouncedValue(name, 300)
-	const [debouncedRarity] = useDebouncedValue(rarity, 300)
-	const [debouncedNationality] = useDebouncedValue(nationality, 300)
-	const [debouncedType] = useDebouncedValue(type, 300)
+	const debouncedName = useDebouncedValue(name, 300)
+	const debouncedRarity = useDebouncedValue(rarity, 300)
+	const debouncedNationality = useDebouncedValue(nationality, 300)
+	const debouncedType = useDebouncedValue(type, 300)
 
 	const shipsQuery = useQuery({
 		queryKey: [

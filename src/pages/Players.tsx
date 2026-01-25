@@ -1,4 +1,3 @@
-import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
@@ -10,6 +9,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { api } from '../services/api'
 import type { PlayerSummary } from '../types'
 
@@ -20,9 +20,9 @@ export const PlayersPage: React.FC = () => {
 	const [filter, setFilter] = useState('')
 	const [minLevelInput, setMinLevelInput] = useState('')
 	const navigate = useNavigate()
-	const [debouncedName] = useDebouncedValue(name, 300)
-	const [debouncedFilter] = useDebouncedValue(filter, 300)
-	const [debouncedMinLevel] = useDebouncedValue(minLevelInput, 300)
+	const debouncedName = useDebouncedValue(name, 300)
+	const debouncedFilter = useDebouncedValue(filter, 300)
+	const debouncedMinLevel = useDebouncedValue(minLevelInput, 300)
 
 	const playersQuery = useQuery({
 		queryKey: [
