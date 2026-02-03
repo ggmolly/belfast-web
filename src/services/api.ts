@@ -1,8 +1,22 @@
 import type {
 	APIResponse,
 	ActivityAllowlistPayload,
+	AdminUserCreateRequest,
+	AdminUserListResponse,
+	AdminUserPasswordUpdateRequest,
+	AdminUserResponse,
+	AdminUserUpdateRequest,
+	AuthBootstrapRequest,
+	AuthBootstrapStatusResponse,
+	AuthLoginRequest,
+	AuthLoginResponse,
+	AuthPasswordChangeRequest,
+	AuthSessionResponse,
 	BanPlayerRequest,
 	ConnectionSummary,
+	ExchangeCodeListResponse,
+	ExchangeCodeRedeemListResponse,
+	ExchangeCodeRedeemRequest,
 	ExchangeCodeRequest,
 	GiveItemRequest,
 	GiveShipRequest,
@@ -12,6 +26,14 @@ import type {
 	KickPlayerResponse,
 	NoticeListResponse,
 	NoticeSummary,
+	PasskeyAuthenticateOptionsRequest,
+	PasskeyAuthenticateOptionsResponse,
+	PasskeyAuthenticateVerifyRequest,
+	PasskeyListResponse,
+	PasskeyRegisterOptionsRequest,
+	PasskeyRegisterOptionsResponse,
+	PasskeyRegisterResponse,
+	PasskeyRegisterVerifyRequest,
 	PlayerDetailResponse,
 	PlayerItemResponse,
 	PlayerListResponse,
@@ -29,29 +51,65 @@ import type {
 	ShipSkinListResponse,
 	SkinListResponse,
 	UpdatePlayerItemQuantityRequest,
+	UserAuthLoginRequest,
+	UserAuthLoginResponse,
+	UserRegistrationChallengeRequest,
+	UserRegistrationChallengeResponse,
+	UserRegistrationStatusResponse,
 } from '../types'
 
 const API_BASE = 'http://localhost:2289/api/v1'
 
+let csrfToken: string | null = null
+
+export class ApiError extends Error {
+	code?: string
+	status?: number
+
+	constructor(message: string, code?: string, status?: number) {
+		super(message)
+		this.name = 'ApiError'
+		this.code = code
+		this.status = status
+	}
+}
+
+export const setCsrfToken = (token: string | null) => {
+	csrfToken = token
+}
+
+const buildHeaders = (options?: RequestInit) => {
+	const headers = new Headers(options?.headers)
+	headers.set('Content-Type', 'application/json')
+	const method = options?.method?.toUpperCase() ?? 'GET'
+	if (csrfToken && method !== 'GET' && method !== 'HEAD') {
+		headers.set('X-CSRF-Token', csrfToken)
+	}
+	return headers
+}
+
 const request = async <T>(path: string, options?: RequestInit) => {
 	const res = await fetch(`${API_BASE}${path}`, {
-		headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+		credentials: 'include',
+		headers: buildHeaders(options),
 		...options,
 	})
-	const data = (await res.json()) as APIResponse<T>
+	const data = (await res.json()) as APIResponse<T> & { error?: { message?: string; code?: string } }
 	if (!res.ok) {
-		throw new Error('Request failed')
+		throw new ApiError(data?.error?.message ?? 'Request failed', data?.error?.code, res.status)
 	}
 	return data
 }
 
 const requestVoid = async (path: string, options?: RequestInit) => {
 	const res = await fetch(`${API_BASE}${path}`, {
-		headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+		credentials: 'include',
+		headers: buildHeaders(options),
 		...options,
 	})
 	if (!res.ok) {
-		throw new Error('Request failed')
+		const data = (await res.json()) as { error?: { message?: string; code?: string } }
+		throw new ApiError(data?.error?.message ?? 'Request failed', data?.error?.code, res.status)
 	}
 }
 
@@ -67,6 +125,56 @@ const buildParams = (params: Record<string, string | number | boolean | undefine
 }
 
 export const api = {
+	authBootstrap: (payload: AuthBootstrapRequest) =>
+		request<AuthLoginResponse>('/auth/bootstrap', { method: 'POST', body: JSON.stringify(payload) }),
+	authBootstrapStatus: () => request<AuthBootstrapStatusResponse>('/auth/bootstrap/status'),
+	authLogin: (payload: AuthLoginRequest) =>
+		request<AuthLoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+	authLogout: () => requestVoid('/auth/logout', { method: 'POST' }),
+	authSession: () => request<AuthSessionResponse>('/auth/session'),
+	authChangePassword: (payload: AuthPasswordChangeRequest) =>
+		requestVoid('/auth/password/change', { method: 'POST', body: JSON.stringify(payload) }),
+	getPasskeys: () => request<PasskeyListResponse>('/auth/passkeys'),
+	deletePasskey: (credentialId: string) => requestVoid(`/auth/passkeys/${credentialId}`, { method: 'DELETE' }),
+	passkeyRegisterOptions: (payload: PasskeyRegisterOptionsRequest) =>
+		request<PasskeyRegisterOptionsResponse>('/auth/passkeys/register/options', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	passkeyRegisterVerify: (payload: PasskeyRegisterVerifyRequest) =>
+		request<PasskeyRegisterResponse>('/auth/passkeys/register/verify', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	passkeyAuthenticateOptions: (payload: PasskeyAuthenticateOptionsRequest) =>
+		request<PasskeyAuthenticateOptionsResponse>('/auth/passkeys/authenticate/options', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	passkeyAuthenticateVerify: (payload: PasskeyAuthenticateVerifyRequest) =>
+		request<AuthLoginResponse>('/auth/passkeys/authenticate/verify', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	userAuthLogin: (payload: UserAuthLoginRequest) =>
+		request<UserAuthLoginResponse>('/user/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+	createRegistrationChallenge: (payload: UserRegistrationChallengeRequest) =>
+		request<UserRegistrationChallengeResponse>('/registration/challenges', {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
+	getRegistrationChallengeStatus: (challengeId: string) =>
+		request<UserRegistrationStatusResponse>(`/registration/challenges/${challengeId}`),
+
+	listAdminUsers: (params: { offset?: number; limit?: number }) =>
+		request<AdminUserListResponse>(`/admin/users${buildParams(params)}`),
+	createAdminUser: (payload: AdminUserCreateRequest) =>
+		request<AdminUserResponse>('/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
+	updateAdminUser: (id: string, payload: AdminUserUpdateRequest) =>
+		request<AdminUserResponse>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+	deleteAdminUser: (id: string) => requestVoid(`/admin/users/${id}`, { method: 'DELETE' }),
+	resetAdminPassword: (id: string, payload: AdminUserPasswordUpdateRequest) =>
+		requestVoid(`/admin/users/${id}/password`, { method: 'PUT', body: JSON.stringify(payload) }),
 	getServerStatus: () => request<ServerStatusResponse>('/server/status'),
 	getServerMetrics: () => request<ServerMetricsResponse>('/server/metrics'),
 	getServerUptime: () => request<ServerUptimeResponse>('/server/uptime'),
@@ -172,4 +280,10 @@ export const api = {
 
 	createExchangeCode: (payload: ExchangeCodeRequest) =>
 		request<void>('/exchange-codes', { method: 'POST', body: JSON.stringify(payload) }),
+	getExchangeCodes: (params: { offset?: number; limit?: number }) =>
+		request<ExchangeCodeListResponse>(`/exchange-codes${buildParams(params)}`),
+	getExchangeCodeRedeems: (id: number, params: { offset?: number; limit?: number }) =>
+		request<ExchangeCodeRedeemListResponse>(`/exchange-codes/${id}/redeems${buildParams(params)}`),
+	createExchangeCodeRedeem: (id: number, payload: ExchangeCodeRedeemRequest) =>
+		requestVoid(`/exchange-codes/${id}/redeems`, { method: 'POST', body: JSON.stringify(payload) }),
 }

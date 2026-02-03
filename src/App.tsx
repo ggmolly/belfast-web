@@ -1,7 +1,9 @@
 import './App.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
-import { ThemeProvider } from './components/ThemeContext'
+import { Toaster } from 'sonner'
+import { AuthProvider } from './components/AuthContext'
+import { ThemeProvider, useTheme } from './components/ThemeContext'
 import { router } from './router'
 
 const queryClient = new QueryClient({
@@ -13,11 +15,19 @@ const queryClient = new QueryClient({
 	},
 })
 
+const AppToaster = () => {
+	const { theme } = useTheme()
+	return <Toaster position="top-right" richColors theme={theme} closeButton />
+}
+
 const App = () => {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider defaultTheme="system" storageKey="belfast-admin-theme">
-				<RouterProvider router={router} />
+				<AuthProvider>
+					<AppToaster />
+					<RouterProvider router={router} />
+				</AuthProvider>
 			</ThemeProvider>
 		</QueryClientProvider>
 	)

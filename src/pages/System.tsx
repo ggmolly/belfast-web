@@ -1,21 +1,39 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Calendar, Megaphone, RefreshCw } from 'lucide-react'
+import {
+	Calendar,
+	Fingerprint,
+	KeyRound,
+	Megaphone,
+	ShieldCheck,
+	Trash2,
+	UserCheck,
+	UserMinus,
+	UserPlus,
+} from 'lucide-react'
 import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { useAuth } from '../components/AuthContext'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
+import { parseCreationOptions, serializeRegistrationCredential } from '../lib/webauthn'
 import { api } from '../services/api'
-import type { ExchangeCodeRequest, NoticeSummary } from '../types'
+import type { NoticeSummary } from '../types'
 
 export const SystemPage: React.FC = () => {
 	const queryClient = useQueryClient()
+	const auth = useAuth()
 	const [noticeModalOpen, setNoticeModalOpen] = useState(false)
-	const [exchangeModalOpen, setExchangeModalOpen] = useState(false)
 	const [editingNotice, setEditingNotice] = useState<NoticeSummary | null>(null)
+	const [passkeyLabel, setPasskeyLabel] = useState('')
+	const [passkeyLoading, setPasskeyLoading] = useState(false)
+	const [resetAdminId, setResetAdminId] = useState('')
+	const [resetAdminName, setResetAdminName] = useState('')
+	const resetModalOpen = Boolean(resetAdminId)
 
 	const noticesQuery = useQuery({
 		queryKey: ['notices', { offset: 0, limit: 50 }],
@@ -24,6 +42,14 @@ export const SystemPage: React.FC = () => {
 	const allowlistQuery = useQuery({
 		queryKey: ['activities', 'allowlist'],
 		queryFn: api.getActivitiesAllowlist,
+	})
+	const adminUsersQuery = useQuery({
+		queryKey: ['admin-users', { offset: 0, limit: 50 }],
+		queryFn: () => api.listAdminUsers({ offset: 0, limit: 50 }),
+	})
+	const passkeysQuery = useQuery({
+		queryKey: ['auth', 'passkeys'],
+		queryFn: api.getPasskeys,
 	})
 
 	const createNoticeMutation = useMutation({
@@ -52,15 +78,76 @@ export const SystemPage: React.FC = () => {
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: ['activities', 'allowlist'] }),
 	})
 
-	const createExchangeMutation = useMutation({
-		mutationFn: (payload: ExchangeCodeRequest) => api.createExchangeCode(payload),
+	const createAdminMutation = useMutation({
+		mutationFn: (payload: { username: string; password: string }) => api.createAdminUser(payload),
 		onSuccess: () => {
-			setExchangeModalOpen(false)
+			queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+			toast.success('Admin account created')
+		},
+		onError: (error) => {
+			toast.error('Admin creation failed', { description: error.message })
+		},
+	})
+
+	const updateAdminMutation = useMutation({
+		mutationFn: ({ id, payload }: { id: string; payload: { disabled?: boolean } }) => api.updateAdminUser(id, payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+			toast.success('Admin updated')
+		},
+		onError: (error) => {
+			toast.error('Admin update failed', { description: error.message })
+		},
+	})
+
+	const deleteAdminMutation = useMutation({
+		mutationFn: (id: string) => api.deleteAdminUser(id),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+			toast.success('Admin removed')
+		},
+		onError: (error) => {
+			toast.error('Admin delete failed', { description: error.message })
+		},
+	})
+
+	const resetAdminPasswordMutation = useMutation({
+		mutationFn: ({ id, password }: { id: string; password: string }) => api.resetAdminPassword(id, { password }),
+		onSuccess: () => {
+			setResetAdminId('')
+			setResetAdminName('')
+			toast.success('Password reset')
+		},
+		onError: (error) => {
+			toast.error('Password reset failed', { description: error.message })
+		},
+	})
+
+	const changePasswordMutation = useMutation({
+		mutationFn: (payload: { current_password: string; new_password: string }) => api.authChangePassword(payload),
+		onSuccess: () => {
+			toast.success('Password updated')
+		},
+		onError: (error) => {
+			toast.error('Password update failed', { description: error.message })
+		},
+	})
+
+	const deletePasskeyMutation = useMutation({
+		mutationFn: (credentialId: string) => api.deletePasskey(credentialId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
+			toast.success('Passkey removed')
+		},
+		onError: (error) => {
+			toast.error('Passkey removal failed', { description: error.message })
 		},
 	})
 
 	const notices = noticesQuery.data?.data.notices ?? []
 	const allowlistIds = allowlistQuery.data?.data.ids ?? []
+	const adminUsers = adminUsersQuery.data?.data.users ?? []
+	const passkeys = passkeysQuery.data?.data.passkeys ?? []
 
 	const allowlistForm = useForm({
 		defaultValues: {
@@ -104,30 +191,47 @@ export const SystemPage: React.FC = () => {
 		},
 	})
 
-	const exchangeForm = useForm({
+	const adminForm = useForm({
 		defaultValues: {
-			code: '',
-			platform: '',
-			quota: 0,
-			rewards: [{ id: 0, type: 0, count: 1 }],
+			username: '',
+			password: '',
 		},
 		onSubmit: async ({ value }) => {
-			await createExchangeMutation.mutateAsync({
-				code: value.code,
-				platform: value.platform,
-				quota: Number(value.quota),
-				rewards: value.rewards.map((reward) => ({
-					id: Number(reward.id),
-					type: Number(reward.type),
-					count: Number(reward.count),
-				})),
-			})
+			await createAdminMutation.mutateAsync(value)
+			adminForm.reset({ username: '', password: '' })
+		},
+	})
+
+	const resetPasswordForm = useForm({
+		defaultValues: {
+			password: '',
+		},
+		onSubmit: async ({ value }) => {
+			await resetAdminPasswordMutation.mutateAsync({ id: resetAdminId, password: value.password })
+			resetPasswordForm.reset({ password: '' })
+		},
+	})
+
+	const passwordForm = useForm({
+		defaultValues: {
+			current_password: '',
+			new_password: '',
+		},
+		onSubmit: async ({ value }) => {
+			await changePasswordMutation.mutateAsync(value)
+			passwordForm.reset({ current_password: '', new_password: '' })
 		},
 	})
 
 	useEffect(() => {
 		allowlistForm.reset({ idsText: allowlistIds.join(', ') })
 	}, [allowlistIds, allowlistForm])
+
+	useEffect(() => {
+		if (resetModalOpen) {
+			resetPasswordForm.reset({ password: '' })
+		}
+	}, [resetModalOpen, resetPasswordForm])
 
 	useEffect(() => {
 		if (editingNotice) {
@@ -145,9 +249,275 @@ export const SystemPage: React.FC = () => {
 
 	const allowlistSummary = useMemo(() => allowlistIds.slice(0, 8), [allowlistIds])
 
+	const handleRegisterPasskey = async () => {
+		if (!window.PublicKeyCredential) {
+			toast.error('Passkeys are not supported in this browser')
+			return
+		}
+		setPasskeyLoading(true)
+		try {
+			const optionsResponse = await api.passkeyRegisterOptions({
+				label: passkeyLabel || undefined,
+				resident_key: 'preferred',
+				user_verification: 'preferred',
+			})
+			const creationOptions = parseCreationOptions(optionsResponse.data.publicKey)
+			const credential = (await navigator.credentials.create({
+				publicKey: creationOptions,
+			})) as PublicKeyCredential | null
+			if (!credential) {
+				throw new Error('Passkey creation was cancelled')
+			}
+			await api.passkeyRegisterVerify({
+				credential: serializeRegistrationCredential(credential),
+				label: passkeyLabel || undefined,
+			})
+			setPasskeyLabel('')
+			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
+			toast.success('Passkey registered')
+		} catch (error) {
+			toast.error('Passkey registration failed', { description: (error as Error).message })
+		} finally {
+			setPasskeyLoading(false)
+		}
+	}
+
 	return (
 		<div className="space-y-6">
 			<h1 className="text-3xl font-bold tracking-tight">System Management</h1>
+
+			<div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+				<Card>
+					<CardHeader className="flex flex-row items-center justify-between">
+						<CardTitle className="flex items-center gap-2">
+							<ShieldCheck className="h-5 w-5" />
+							Admin Accounts
+						</CardTitle>
+						<Badge variant="secondary">{adminUsers.length} total</Badge>
+					</CardHeader>
+					<CardContent className="space-y-5">
+						<form
+							onSubmit={(event) => {
+								event.preventDefault()
+								adminForm.handleSubmit()
+							}}
+							className="space-y-4 rounded-lg border border-border bg-muted/20 p-4"
+						>
+							<div className="flex items-center gap-2 text-sm font-semibold">
+								<UserPlus className="h-4 w-4 text-primary" />
+								Create new admin
+							</div>
+							<div className="grid gap-3 md:grid-cols-2">
+								<adminForm.Field name="username">
+									{(field) => (
+										<div className="space-y-2">
+											<label className="text-xs font-medium text-muted-foreground" htmlFor="admin-username">
+												Username
+											</label>
+											<Input
+												id="admin-username"
+												value={field.state.value}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder="ops-admin"
+											/>
+										</div>
+									)}
+								</adminForm.Field>
+								<adminForm.Field name="password">
+									{(field) => (
+										<div className="space-y-2">
+											<label className="text-xs font-medium text-muted-foreground" htmlFor="admin-password">
+												Password
+											</label>
+											<Input
+												id="admin-password"
+												type="password"
+												value={field.state.value}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder="Set a strong password"
+											/>
+										</div>
+									)}
+								</adminForm.Field>
+							</div>
+							<Button type="submit" variant="secondary" className="w-full">
+								Create admin account
+							</Button>
+						</form>
+
+						<div className="space-y-3">
+							{adminUsers.length === 0 ? <p className="text-sm text-muted-foreground">No admin users found.</p> : null}
+							{adminUsers.map((user) => (
+								<div
+									key={user.id}
+									className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:flex-row md:items-center md:justify-between"
+								>
+									<div>
+										<p className="text-sm font-semibold text-foreground">{user.username}</p>
+										<p className="text-xs text-muted-foreground">
+											Last login: {user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never'}
+										</p>
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										<Badge variant={user.disabled ? 'outline' : 'secondary'}>
+											{user.disabled ? 'Disabled' : 'Active'}
+										</Badge>
+										{auth.user?.id === user.id ? <Badge variant="outline">You</Badge> : null}
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												setResetAdminId(user.id)
+												setResetAdminName(user.username)
+											}}
+										>
+											<KeyRound className="mr-2 h-3.5 w-3.5" />
+											Reset password
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={() =>
+												updateAdminMutation.mutate({
+													id: user.id,
+													payload: { disabled: !user.disabled },
+												})
+											}
+										>
+											{user.disabled ? (
+												<>
+													<UserCheck className="mr-2 h-3.5 w-3.5" />
+													Enable
+												</>
+											) : (
+												<>
+													<UserMinus className="mr-2 h-3.5 w-3.5" />
+													Disable
+												</>
+											)}
+										</Button>
+										<Button
+											size="sm"
+											variant="destructive"
+											onClick={() => {
+												if (!window.confirm(`Remove ${user.username}?`)) return
+												deleteAdminMutation.mutate(user.id)
+											}}
+										>
+											<Trash2 className="mr-2 h-3.5 w-3.5" />
+											Remove
+										</Button>
+									</div>
+								</div>
+							))}
+						</div>
+					</CardContent>
+				</Card>
+
+				<div className="space-y-6">
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between">
+							<CardTitle className="flex items-center gap-2">
+								<Fingerprint className="h-5 w-5" />
+								Passkeys
+							</CardTitle>
+							<Badge variant="secondary">{passkeys.length} saved</Badge>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="space-y-2">
+								<label className="text-xs font-medium text-muted-foreground" htmlFor="passkey-label">
+									Label (optional)
+								</label>
+								<Input
+									id="passkey-label"
+									value={passkeyLabel}
+									onChange={(event) => setPasskeyLabel(event.target.value)}
+									placeholder="MacBook Pro"
+								/>
+							</div>
+							<Button variant="secondary" className="w-full" disabled={passkeyLoading} onClick={handleRegisterPasskey}>
+								{passkeyLoading ? 'Registering...' : 'Register passkey'}
+							</Button>
+							<div className="space-y-3">
+								{passkeys.length === 0 ? (
+									<p className="text-sm text-muted-foreground">No passkeys registered yet.</p>
+								) : null}
+								{passkeys.map((passkey) => (
+									<div key={passkey.credential_id} className="rounded-lg border border-border bg-card p-3">
+										<div className="flex items-center justify-between gap-3">
+											<div>
+												<p className="text-sm font-semibold text-foreground">{passkey.label || 'Unnamed passkey'}</p>
+												<p className="text-xs text-muted-foreground">
+													Created: {new Date(passkey.created_at).toLocaleDateString()}
+												</p>
+											</div>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => deletePasskeyMutation.mutate(passkey.credential_id)}
+											>
+												Remove
+											</Button>
+										</div>
+									</div>
+								))}
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<KeyRound className="h-5 w-5" />
+								Change Password
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<form
+								onSubmit={(event) => {
+									event.preventDefault()
+									passwordForm.handleSubmit()
+								}}
+								className="space-y-3"
+							>
+								<passwordForm.Field name="current_password">
+									{(field) => (
+										<div className="space-y-2">
+											<label className="text-xs font-medium text-muted-foreground" htmlFor="current-password">
+												Current password
+											</label>
+											<Input
+												id="current-password"
+												type="password"
+												value={field.state.value}
+												onChange={(event) => field.handleChange(event.target.value)}
+											/>
+										</div>
+									)}
+								</passwordForm.Field>
+								<passwordForm.Field name="new_password">
+									{(field) => (
+										<div className="space-y-2">
+											<label className="text-xs font-medium text-muted-foreground" htmlFor="new-password">
+												New password
+											</label>
+											<Input
+												id="new-password"
+												type="password"
+												value={field.state.value}
+												onChange={(event) => field.handleChange(event.target.value)}
+											/>
+										</div>
+									)}
+								</passwordForm.Field>
+								<Button type="submit" className="w-full" variant="secondary">
+									Update password
+								</Button>
+							</form>
+						</CardContent>
+					</Card>
+				</div>
+			</div>
 
 			<div className="grid gap-6 md:grid-cols-2">
 				<div className="space-y-6">
@@ -198,20 +568,6 @@ export const SystemPage: React.FC = () => {
 							</form>
 						</CardContent>
 					</Card>
-
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<RefreshCw className="h-5 w-5" />
-								Exchange Codes
-							</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<Button className="w-full" variant="secondary" onClick={() => setExchangeModalOpen(true)}>
-								Generate New Code
-							</Button>
-						</CardContent>
-					</Card>
 				</div>
 
 				<Card>
@@ -255,6 +611,55 @@ export const SystemPage: React.FC = () => {
 					</CardContent>
 				</Card>
 			</div>
+
+			<Modal
+				isOpen={resetModalOpen}
+				onClose={() => {
+					setResetAdminId('')
+					setResetAdminName('')
+				}}
+				title={resetAdminName ? `Reset password: ${resetAdminName}` : 'Reset password'}
+			>
+				<form
+					onSubmit={(event) => {
+						event.preventDefault()
+						resetPasswordForm.handleSubmit()
+					}}
+					className="space-y-4"
+				>
+					<resetPasswordForm.Field name="password">
+						{(field) => (
+							<div className="space-y-2">
+								<label htmlFor="reset-password" className="text-sm font-medium">
+									New password
+								</label>
+								<Input
+									id="reset-password"
+									type="password"
+									value={field.state.value}
+									onChange={(event) => field.handleChange(event.target.value)}
+									placeholder="Temporary or permanent password"
+								/>
+							</div>
+						)}
+					</resetPasswordForm.Field>
+					<div className="flex justify-end gap-2">
+						<Button
+							type="button"
+							variant="ghost"
+							onClick={() => {
+								setResetAdminId('')
+								setResetAdminName('')
+							}}
+						>
+							Cancel
+						</Button>
+						<Button type="submit" variant="secondary">
+							Reset password
+						</Button>
+					</div>
+				</form>
+			</Modal>
 
 			<Modal
 				isOpen={noticeModalOpen}
@@ -344,134 +749,6 @@ export const SystemPage: React.FC = () => {
 							Cancel
 						</Button>
 						<Button type="submit">Save Notice</Button>
-					</div>
-				</form>
-			</Modal>
-
-			<Modal isOpen={exchangeModalOpen} onClose={() => setExchangeModalOpen(false)} title="Create Exchange Code">
-				<form
-					onSubmit={(event) => {
-						event.preventDefault()
-						exchangeForm.handleSubmit()
-					}}
-					className="space-y-4"
-				>
-					<div className="grid gap-4 md:grid-cols-2">
-						<exchangeForm.Field name="code">
-							{(field) => (
-								<div className="space-y-2">
-									<label htmlFor="exchange-code" className="text-sm font-medium">
-										Code
-									</label>
-									<Input
-										id="exchange-code"
-										value={field.state.value}
-										onChange={(event) => field.handleChange(event.target.value)}
-									/>
-								</div>
-							)}
-						</exchangeForm.Field>
-						<exchangeForm.Field name="platform">
-							{(field) => (
-								<div className="space-y-2">
-									<label htmlFor="exchange-platform" className="text-sm font-medium">
-										Platform
-									</label>
-									<Input
-										id="exchange-platform"
-										value={field.state.value}
-										onChange={(event) => field.handleChange(event.target.value)}
-									/>
-								</div>
-							)}
-						</exchangeForm.Field>
-					</div>
-					<exchangeForm.Field name="quota">
-						{(field) => (
-							<div className="space-y-2">
-								<label htmlFor="exchange-quota" className="text-sm font-medium">
-									Quota
-								</label>
-								<Input
-									id="exchange-quota"
-									type="number"
-									value={field.state.value}
-									onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-								/>
-							</div>
-						)}
-					</exchangeForm.Field>
-					<div className="space-y-3">
-						<div className="flex items-center justify-between">
-							<span className="text-sm font-medium">Rewards</span>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() =>
-									exchangeForm.setFieldValue('rewards', [
-										...exchangeForm.state.values.rewards,
-										{ id: 0, type: 0, count: 1 },
-									])
-								}
-							>
-								Add Reward
-							</Button>
-						</div>
-						{exchangeForm.state.values.rewards.map((reward, idx) => (
-							<div key={`reward-${reward.id}-${reward.type}-${reward.count}`} className="grid gap-3 md:grid-cols-3">
-								<exchangeForm.Field name={`rewards[${idx}].id`}>
-									{(field) => (
-										<div className="space-y-1">
-											<label htmlFor={`reward-id-${idx}`} className="text-xs text-muted-foreground">
-												Item ID
-											</label>
-											<Input
-												id={`reward-id-${idx}`}
-												type="number"
-												value={field.state.value}
-												onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-											/>
-										</div>
-									)}
-								</exchangeForm.Field>
-								<exchangeForm.Field name={`rewards[${idx}].type`}>
-									{(field) => (
-										<div className="space-y-1">
-											<label htmlFor={`reward-type-${idx}`} className="text-xs text-muted-foreground">
-												Type
-											</label>
-											<Input
-												id={`reward-type-${idx}`}
-												type="number"
-												value={field.state.value}
-												onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-											/>
-										</div>
-									)}
-								</exchangeForm.Field>
-								<exchangeForm.Field name={`rewards[${idx}].count`}>
-									{(field) => (
-										<div className="space-y-1">
-											<label htmlFor={`reward-count-${idx}`} className="text-xs text-muted-foreground">
-												Count
-											</label>
-											<Input
-												id={`reward-count-${idx}`}
-												type="number"
-												value={field.state.value}
-												onChange={(event) => field.handleChange(event.target.valueAsNumber)}
-											/>
-										</div>
-									)}
-								</exchangeForm.Field>
-							</div>
-						))}
-					</div>
-					<div className="flex justify-end gap-2">
-						<Button type="button" variant="ghost" onClick={() => setExchangeModalOpen(false)}>
-							Cancel
-						</Button>
-						<Button type="submit">Create Code</Button>
 					</div>
 				</form>
 			</Modal>

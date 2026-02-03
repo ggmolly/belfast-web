@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { Layout } from './components/Layout'
 import { DashboardPage } from './pages/Dashboard'
+import { ExchangeCodesPage } from './pages/ExchangeCodes'
 import { PlayerDetailPage } from './pages/PlayerDetail'
 import { PlayersPage } from './pages/Players'
 import { ShipDatabasePage } from './pages/ShipDatabase'
@@ -34,13 +35,26 @@ const shipsRoute = createRoute({
 	component: ShipDatabasePage,
 })
 
+const exchangeCodesRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/exchange-codes',
+	component: ExchangeCodesPage,
+})
+
 const systemRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: '/system',
 	component: SystemPage,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, playersRoute, playerDetailRoute, shipsRoute, systemRoute])
+const routeTree = rootRoute.addChildren([
+	indexRoute,
+	playersRoute,
+	playerDetailRoute,
+	shipsRoute,
+	exchangeCodesRoute,
+	systemRoute,
+])
 
 export const router = createRouter({
 	routeTree,

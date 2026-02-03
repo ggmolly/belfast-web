@@ -247,7 +247,221 @@ export interface ExchangeCodeRequest {
 	rewards: ExchangeReward[]
 }
 
+export interface ExchangeCodeSummary {
+	code: string
+	id: number
+	platform: string
+	quota: number
+	rewards: ExchangeReward[]
+}
+
+export interface ExchangeCodeListResponse {
+	codes: ExchangeCodeSummary[]
+	meta: PaginationMeta
+}
+
+export interface ExchangeCodeRedeemRequest {
+	commander_id: number
+}
+
+export interface ExchangeCodeRedeemSummary {
+	commander_id: number
+	redeemed_at: string
+}
+
+export interface ExchangeCodeRedeemListResponse {
+	redeems: ExchangeCodeRedeemSummary[]
+	meta: PaginationMeta
+}
+
 export interface ServerUptimeResponse {
 	uptime_human: string
 	uptime_sec: number
+}
+
+export interface APIError {
+	code: string
+	message: string
+	details?: Record<string, unknown>
+}
+
+export interface AdminUser {
+	created_at: string
+	disabled: boolean
+	id: string
+	is_admin: boolean
+	last_login_at: string
+	username: string
+}
+
+export interface AdminUserListResponse {
+	users: AdminUser[]
+	meta: PaginationMeta
+}
+
+export interface AdminUserResponse {
+	user: AdminUser
+}
+
+export interface AdminUserCreateRequest {
+	username: string
+	password: string
+}
+
+export interface AdminUserUpdateRequest {
+	username?: string
+	disabled?: boolean
+}
+
+export interface AdminUserPasswordUpdateRequest {
+	password: string
+}
+
+export interface AuthBootstrapRequest {
+	username: string
+	password: string
+}
+
+export interface AuthBootstrapStatusResponse {
+	admin_count: number
+	can_bootstrap: boolean
+}
+
+export interface AuthLoginRequest {
+	username: string
+	password: string
+}
+
+export interface AuthSession {
+	id: string
+	expires_at: string
+}
+
+export interface AuthLoginResponse {
+	user: AdminUser
+	session: AuthSession
+}
+
+export interface AuthSessionResponse {
+	user: AdminUser
+	session: AuthSession
+	csrf_token: string
+}
+
+export interface AuthPasswordChangeRequest {
+	current_password: string
+	new_password: string
+}
+
+export interface UserAccount {
+	commander_id: number
+	created_at: string
+	disabled: boolean
+	id: string
+	last_login_at: string
+}
+
+export interface UserSession {
+	id: string
+	expires_at: string
+}
+
+export interface UserAuthLoginRequest {
+	commander_id: number
+	password: string
+}
+
+export interface UserAuthLoginResponse {
+	user: UserAccount
+	session: UserSession
+}
+
+export interface UserRegistrationChallengeRequest {
+	commander_id: number
+	password: string
+}
+
+export interface UserRegistrationChallengeResponse {
+	challenge_id: string
+	pin: string
+	expires_at: string
+}
+
+export interface UserRegistrationStatusResponse {
+	status: 'pending' | 'consumed' | 'expired'
+}
+
+export interface PasskeySummary {
+	credential_id: string
+	label: string
+	created_at: string
+	last_used_at: string
+	aaguid: string
+	backup_eligible: boolean
+	backup_state: boolean
+	transports: string[]
+}
+
+export interface PasskeyListResponse {
+	passkeys: PasskeySummary[]
+}
+
+export interface PasskeyRegisterOptionsRequest {
+	label?: string
+	resident_key?: string
+	user_verification?: string
+}
+
+export interface PasskeyRegisterOptionsResponse {
+	publicKey: Record<string, unknown>
+}
+
+export interface PasskeyRegisterResponse {
+	credential_id: string
+	label: string
+	created_at: string
+}
+
+export interface PasskeyAttestationResponse {
+	attestationObject: string
+	clientDataJSON: string
+}
+
+export interface PasskeyRegistrationCredential {
+	id: string
+	rawId: string
+	type: string
+	response: PasskeyAttestationResponse
+}
+
+export interface PasskeyRegisterVerifyRequest {
+	credential: PasskeyRegistrationCredential
+	label?: string
+}
+
+export interface PasskeyAuthenticateOptionsRequest {
+	username?: string
+}
+
+export interface PasskeyAuthenticateOptionsResponse {
+	publicKey: Record<string, unknown>
+}
+
+export interface PasskeyAssertionResponse {
+	authenticatorData: string
+	clientDataJSON: string
+	signature: string
+	userHandle?: string
+}
+
+export interface PasskeyAuthenticationCredential {
+	id: string
+	rawId: string
+	type: string
+	response: PasskeyAssertionResponse
+}
+
+export interface PasskeyAuthenticateVerifyRequest {
+	credential: PasskeyAuthenticationCredential
+	username?: string
 }

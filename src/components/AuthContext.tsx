@@ -1,0 +1,124 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type React from 'react'
+import { createContext, useContext, useEffect, useMemo } from 'react'
+import { toast } from 'sonner'
+import { api, setCsrfToken } from '../services/api'
+import type { AdminUser, AuthBootstrapRequest, AuthLoginRequest, AuthSession } from '../types'
+
+interface AuthContextValue {
+	user: AdminUser | null
+	session: AuthSession | null
+	csrfToken: string | null
+	isLoading: boolean
+	isAuthenticated: boolean
+	login: (payload: AuthLoginRequest) => Promise<void>
+	bootstrap: (payload: AuthBootstrapRequest) => Promise<void>
+	logout: () => Promise<void>
+	refreshSession: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null)
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+	const queryClient = useQueryClient()
+	const sessionQuery = useQuery({
+		queryKey: ['auth', 'session'],
+		queryFn: api.authSession,
+		retry: false,
+	})
+
+	useEffect(() => {
+		if (sessionQuery.data?.data.csrf_token) {
+			setCsrfToken(sessionQuery.data.data.csrf_token)
+			return
+		}
+		if (sessionQuery.isError) {
+			setCsrfToken(null)
+		}
+	}, [sessionQuery.data, sessionQuery.isError])
+
+	const loginMutation = useMutation({
+		mutationFn: (payload: AuthLoginRequest) => api.authLogin(payload),
+		onSuccess: async () => {
+			await sessionQuery.refetch()
+			toast.success('Welcome back!')
+		},
+		onError: (error) => {
+			toast.error('Login failed', { description: error.message })
+		},
+	})
+
+	const bootstrapMutation = useMutation({
+		mutationFn: (payload: AuthBootstrapRequest) => api.authBootstrap(payload),
+		onSuccess: async () => {
+			await sessionQuery.refetch()
+			toast.success('Admin account created')
+		},
+		onError: (error) => {
+			toast.error('Bootstrap failed', { description: error.message })
+		},
+	})
+
+	const logoutMutation = useMutation({
+		mutationFn: api.authLogout,
+		onSuccess: () => {
+			setCsrfToken(null)
+			queryClient.removeQueries({ queryKey: ['auth', 'session'] })
+			toast.success('Signed out')
+		},
+		onError: (error) => {
+			toast.error('Sign out failed', { description: error.message })
+		},
+	})
+
+	const user = sessionQuery.data?.data.user ?? null
+	const session = sessionQuery.data?.data.session ?? null
+	const csrfToken = sessionQuery.data?.data.csrf_token ?? null
+
+	const value = useMemo<AuthContextValue>(
+		() => ({
+			user,
+			session,
+			csrfToken,
+			isLoading: sessionQuery.isLoading,
+			isAuthenticated: Boolean(user),
+			login: async (payload) => {
+				try {
+					await loginMutation.mutateAsync(payload)
+				} catch {
+					return
+				}
+			},
+			bootstrap: async (payload) => {
+				try {
+					await bootstrapMutation.mutateAsync(payload)
+				} catch {
+					return
+				}
+			},
+			logout: async () => {
+				try {
+					await logoutMutation.mutateAsync()
+				} catch {
+					return
+				}
+			},
+			refreshSession: async () => {
+				try {
+					await sessionQuery.refetch()
+				} catch {
+					return
+				}
+			},
+		}),
+		[user, session, csrfToken, sessionQuery.isLoading, loginMutation, bootstrapMutation, logoutMutation, sessionQuery],
+	)
+
+	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export const useAuth = () => {
+	const context = useContext(AuthContext)
+	if (!context) throw new Error('useAuth must be used within AuthProvider')
+	return context
+}
