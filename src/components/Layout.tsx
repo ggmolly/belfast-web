@@ -30,8 +30,18 @@ const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string }
 export const Layout: React.FC = () => {
 	const { theme, setTheme } = useTheme()
 	const auth = useAuth()
+	const isAdmin = auth.isAdminAuthenticated
+	const isPlayer = auth.isPlayerAuthenticated
+	const handleSignOut = async () => {
+		if (isAdmin) {
+			await auth.logout()
+		}
+		if (isPlayer) {
+			auth.playerLogout()
+		}
+	}
 
-	if (auth.isLoading) {
+	if (auth.isLoading && !auth.isAuthenticated) {
 		return (
 			<div className="flex min-h-screen items-center justify-center bg-background text-foreground">
 				<div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
@@ -42,7 +52,7 @@ export const Layout: React.FC = () => {
 		)
 	}
 
-	if (!auth.isAuthenticated) {
+	if (!isAdmin && !isPlayer) {
 		return <LoginPage />
 	}
 
@@ -81,13 +91,16 @@ export const Layout: React.FC = () => {
 					<div className="mt-auto space-y-4 border-t border-border/50 bg-muted/20 p-4">
 						<div className="flex flex-wrap items-center justify-between gap-3">
 							<p className="text-xs font-medium text-muted-foreground">
-								Signed in as <span className="font-bold text-foreground">{auth.user?.username}</span>
+								Signed in as{' '}
+								<span className="font-bold text-foreground">
+									{auth.user?.username ?? (auth.playerUser ? `Commander ${auth.playerUser.commander_id}` : 'Unknown')}
+								</span>
 							</p>
 							<Button
 								type="button"
 								variant="outline"
 								size="sm"
-								onClick={() => auth.logout()}
+								onClick={() => handleSignOut()}
 								className="text-destructive"
 							>
 								<DoorOpen className="mr-2 h-4 w-4" />

@@ -383,8 +383,11 @@ export interface UserRegistrationChallengeRequest {
 
 export interface UserRegistrationChallengeResponse {
 	challenge_id: string
-	pin: string
 	expires_at: string
+}
+
+export interface UserRegistrationVerifyRequest {
+	pin: string
 }
 
 export interface UserRegistrationStatusResponse {

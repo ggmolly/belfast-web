@@ -56,6 +56,7 @@ import type {
 	UserRegistrationChallengeRequest,
 	UserRegistrationChallengeResponse,
 	UserRegistrationStatusResponse,
+	UserRegistrationVerifyRequest,
 } from '../types'
 
 const API_BASE = 'http://localhost:2289/api/v1'
@@ -165,6 +166,11 @@ export const api = {
 		}),
 	getRegistrationChallengeStatus: (challengeId: string) =>
 		request<UserRegistrationStatusResponse>(`/registration/challenges/${challengeId}`),
+	verifyRegistrationChallenge: (challengeId: string, payload: UserRegistrationVerifyRequest) =>
+		request<UserRegistrationStatusResponse>(`/registration/challenges/${challengeId}/verify`, {
+			method: 'POST',
+			body: JSON.stringify(payload),
+		}),
 
 	listAdminUsers: (params: { offset?: number; limit?: number }) =>
 		request<AdminUserListResponse>(`/admin/users${buildParams(params)}`),
