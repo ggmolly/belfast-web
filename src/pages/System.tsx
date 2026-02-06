@@ -1,36 +1,32 @@
 import { useForm } from '@tanstack/react-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-	Calendar,
-	Fingerprint,
-	KeyRound,
-	Megaphone,
-	ShieldCheck,
-	Trash2,
-	UserCheck,
-	UserMinus,
-	UserPlus,
-} from 'lucide-react'
+import { Calendar, KeyRound, Megaphone, ShieldCheck, Trash2, UserCheck, UserMinus, UserPlus } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuth } from '../components/AuthContext'
+import { usePermissions } from '../components/PermissionsContext'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
-import { parseCreationOptions, serializeRegistrationCredential } from '../lib/webauthn'
 import { api } from '../services/api'
 import type { NoticeSummary } from '../types'
 
 export const SystemPage: React.FC = () => {
 	const queryClient = useQueryClient()
 	const auth = useAuth()
+	const perms = usePermissions()
+	const canAdminUsersRead = perms.can('admin.users', 'read_any')
+	const canAdminUsersWrite = perms.can('admin.users', 'write_any')
+	const canNoticesRead = perms.can('notices', 'read_any')
+	const canNoticesWrite = perms.can('notices', 'write_any')
+	const canActivitiesRead = perms.can('activities', 'read_any')
+	const canActivitiesWrite = perms.can('activities', 'write_any')
+	const canViewSystem = canAdminUsersRead || canNoticesRead || canActivitiesRead || perms.can('server', 'read_any')
 	const [noticeModalOpen, setNoticeModalOpen] = useState(false)
 	const [editingNotice, setEditingNotice] = useState<NoticeSummary | null>(null)
-	const [passkeyLabel, setPasskeyLabel] = useState('')
-	const [passkeyLoading, setPasskeyLoading] = useState(false)
 	const [resetAdminId, setResetAdminId] = useState('')
 	const [resetAdminName, setResetAdminName] = useState('')
 	const resetModalOpen = Boolean(resetAdminId)
@@ -38,20 +34,18 @@ export const SystemPage: React.FC = () => {
 	const noticesQuery = useQuery({
 		queryKey: ['notices', { offset: 0, limit: 50 }],
 		queryFn: () => api.getNotices({ offset: 0, limit: 50 }),
+		enabled: canNoticesRead,
 	})
 	const allowlistQuery = useQuery({
 		queryKey: ['activities', 'allowlist'],
 		queryFn: api.getActivitiesAllowlist,
+		enabled: canActivitiesRead,
 	})
 	const adminUsersQuery = useQuery({
 		queryKey: ['admin-users', { offset: 0, limit: 50 }],
 		queryFn: () => api.listAdminUsers({ offset: 0, limit: 50 }),
+		enabled: canAdminUsersRead,
 	})
-	const passkeysQuery = useQuery({
-		queryKey: ['auth', 'passkeys'],
-		queryFn: api.getPasskeys,
-	})
-
 	const createNoticeMutation = useMutation({
 		mutationFn: (payload: NoticeSummary) => api.createNotice(payload),
 		onSuccess: () => {
@@ -123,37 +117,19 @@ export const SystemPage: React.FC = () => {
 		},
 	})
 
-	const changePasswordMutation = useMutation({
-		mutationFn: (payload: { current_password: string; new_password: string }) => api.authChangePassword(payload),
-		onSuccess: () => {
-			toast.success('Password updated')
-		},
-		onError: (error) => {
-			toast.error('Password update failed', { description: error.message })
-		},
-	})
-
-	const deletePasskeyMutation = useMutation({
-		mutationFn: (credentialId: string) => api.deletePasskey(credentialId),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
-			toast.success('Passkey removed')
-		},
-		onError: (error) => {
-			toast.error('Passkey removal failed', { description: error.message })
-		},
-	})
-
 	const notices = noticesQuery.data?.data.notices ?? []
 	const allowlistIds = allowlistQuery.data?.data.ids ?? []
 	const adminUsers = adminUsersQuery.data?.data.users ?? []
-	const passkeys = passkeysQuery.data?.data.passkeys ?? []
 
 	const allowlistForm = useForm({
 		defaultValues: {
 			idsText: '',
 		},
 		onSubmit: async ({ value }) => {
+			if (!canActivitiesWrite) {
+				toast.error('You do not have permission to update the activities allowlist.')
+				return
+			}
 			const ids = value.idsText
 				.split(/[\s,]+/)
 				.filter(Boolean)
@@ -171,6 +147,10 @@ export const SystemPage: React.FC = () => {
 			time_desc: '',
 		},
 		onSubmit: async ({ value }) => {
+			if (!canNoticesWrite) {
+				toast.error('You do not have permission to modify notices.')
+				return
+			}
 			const payload: NoticeSummary = {
 				id: editingNotice?.id ?? 0,
 				title: value.title,
@@ -197,6 +177,10 @@ export const SystemPage: React.FC = () => {
 			password: '',
 		},
 		onSubmit: async ({ value }) => {
+			if (!canAdminUsersWrite) {
+				toast.error('You do not have permission to manage admin accounts.')
+				return
+			}
 			await createAdminMutation.mutateAsync(value)
 			adminForm.reset({ username: '', password: '' })
 		},
@@ -209,17 +193,6 @@ export const SystemPage: React.FC = () => {
 		onSubmit: async ({ value }) => {
 			await resetAdminPasswordMutation.mutateAsync({ id: resetAdminId, password: value.password })
 			resetPasswordForm.reset({ password: '' })
-		},
-	})
-
-	const passwordForm = useForm({
-		defaultValues: {
-			current_password: '',
-			new_password: '',
-		},
-		onSubmit: async ({ value }) => {
-			await changePasswordMutation.mutateAsync(value)
-			passwordForm.reset({ current_password: '', new_password: '' })
 		},
 	})
 
@@ -249,37 +222,13 @@ export const SystemPage: React.FC = () => {
 
 	const allowlistSummary = useMemo(() => allowlistIds.slice(0, 8), [allowlistIds])
 
-	const handleRegisterPasskey = async () => {
-		if (!window.PublicKeyCredential) {
-			toast.error('Passkeys are not supported in this browser')
-			return
-		}
-		setPasskeyLoading(true)
-		try {
-			const optionsResponse = await api.passkeyRegisterOptions({
-				label: passkeyLabel || undefined,
-				resident_key: 'preferred',
-				user_verification: 'preferred',
-			})
-			const creationOptions = parseCreationOptions(optionsResponse.data.publicKey)
-			const credential = (await navigator.credentials.create({
-				publicKey: creationOptions,
-			})) as PublicKeyCredential | null
-			if (!credential) {
-				throw new Error('Passkey creation was cancelled')
-			}
-			await api.passkeyRegisterVerify({
-				credential: serializeRegistrationCredential(credential),
-				label: passkeyLabel || undefined,
-			})
-			setPasskeyLabel('')
-			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
-			toast.success('Passkey registered')
-		} catch (error) {
-			toast.error('Passkey registration failed', { description: (error as Error).message })
-		} finally {
-			setPasskeyLoading(false)
-		}
+	if (!canViewSystem) {
+		return (
+			<div className="space-y-6">
+				<h1 className="text-3xl font-bold tracking-tight">System Management</h1>
+				<p className="text-sm text-muted-foreground">You do not have permission to access system management.</p>
+			</div>
+		)
 	}
 
 	return (
@@ -296,6 +245,9 @@ export const SystemPage: React.FC = () => {
 						<Badge variant="secondary">{adminUsers.length} total</Badge>
 					</CardHeader>
 					<CardContent className="space-y-5">
+						{!canAdminUsersRead ? (
+							<p className="text-sm text-muted-foreground">You do not have permission to view admin accounts.</p>
+						) : null}
 						<form
 							onSubmit={(event) => {
 								event.preventDefault()
@@ -340,7 +292,7 @@ export const SystemPage: React.FC = () => {
 									)}
 								</adminForm.Field>
 							</div>
-							<Button type="submit" variant="secondary" className="w-full">
+							<Button type="submit" variant="secondary" className="w-full" disabled={!canAdminUsersWrite}>
 								Create admin account
 							</Button>
 						</form>
@@ -370,6 +322,7 @@ export const SystemPage: React.FC = () => {
 												setResetAdminId(user.id)
 												setResetAdminName(user.username)
 											}}
+											disabled={!canAdminUsersWrite}
 										>
 											<KeyRound className="mr-2 h-3.5 w-3.5" />
 											Reset password
@@ -383,6 +336,7 @@ export const SystemPage: React.FC = () => {
 													payload: { disabled: !user.disabled },
 												})
 											}
+											disabled={!canAdminUsersWrite || auth.user?.id === user.id}
 										>
 											{user.disabled ? (
 												<>
@@ -403,6 +357,7 @@ export const SystemPage: React.FC = () => {
 												if (!window.confirm(`Remove ${user.username}?`)) return
 												deleteAdminMutation.mutate(user.id)
 											}}
+											disabled={!canAdminUsersWrite || auth.user?.id === user.id}
 										>
 											<Trash2 className="mr-2 h-3.5 w-3.5" />
 											Remove
@@ -414,109 +369,7 @@ export const SystemPage: React.FC = () => {
 					</CardContent>
 				</Card>
 
-				<div className="space-y-6">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between">
-							<CardTitle className="flex items-center gap-2">
-								<Fingerprint className="h-5 w-5" />
-								Passkeys
-							</CardTitle>
-							<Badge variant="secondary">{passkeys.length} saved</Badge>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="space-y-2">
-								<label className="text-xs font-medium text-muted-foreground" htmlFor="passkey-label">
-									Label (optional)
-								</label>
-								<Input
-									id="passkey-label"
-									value={passkeyLabel}
-									onChange={(event) => setPasskeyLabel(event.target.value)}
-									placeholder="MacBook Pro"
-								/>
-							</div>
-							<Button variant="secondary" className="w-full" disabled={passkeyLoading} onClick={handleRegisterPasskey}>
-								{passkeyLoading ? 'Registering...' : 'Register passkey'}
-							</Button>
-							<div className="space-y-3">
-								{passkeys.length === 0 ? (
-									<p className="text-sm text-muted-foreground">No passkeys registered yet.</p>
-								) : null}
-								{passkeys.map((passkey) => (
-									<div key={passkey.credential_id} className="rounded-lg border border-border bg-card p-3">
-										<div className="flex items-center justify-between gap-3">
-											<div>
-												<p className="text-sm font-semibold text-foreground">{passkey.label || 'Unnamed passkey'}</p>
-												<p className="text-xs text-muted-foreground">
-													Created: {new Date(passkey.created_at).toLocaleDateString()}
-												</p>
-											</div>
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={() => deletePasskeyMutation.mutate(passkey.credential_id)}
-											>
-												Remove
-											</Button>
-										</div>
-									</div>
-								))}
-							</div>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<KeyRound className="h-5 w-5" />
-								Change Password
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<form
-								onSubmit={(event) => {
-									event.preventDefault()
-									passwordForm.handleSubmit()
-								}}
-								className="space-y-3"
-							>
-								<passwordForm.Field name="current_password">
-									{(field) => (
-										<div className="space-y-2">
-											<label className="text-xs font-medium text-muted-foreground" htmlFor="current-password">
-												Current password
-											</label>
-											<Input
-												id="current-password"
-												type="password"
-												value={field.state.value}
-												onChange={(event) => field.handleChange(event.target.value)}
-											/>
-										</div>
-									)}
-								</passwordForm.Field>
-								<passwordForm.Field name="new_password">
-									{(field) => (
-										<div className="space-y-2">
-											<label className="text-xs font-medium text-muted-foreground" htmlFor="new-password">
-												New password
-											</label>
-											<Input
-												id="new-password"
-												type="password"
-												value={field.state.value}
-												onChange={(event) => field.handleChange(event.target.value)}
-											/>
-										</div>
-									)}
-								</passwordForm.Field>
-								<Button type="submit" className="w-full" variant="secondary">
-									Update password
-								</Button>
-							</form>
-						</CardContent>
-					</Card>
-				</div>
+				<div className="space-y-6" />
 			</div>
 
 			<div className="grid gap-6 md:grid-cols-2">
@@ -562,7 +415,7 @@ export const SystemPage: React.FC = () => {
 										</div>
 									)}
 								</allowlistForm.Field>
-								<Button type="submit" className="w-full" variant="secondary">
+								<Button type="submit" className="w-full" variant="secondary" disabled={!canActivitiesWrite}>
 									Update Allowlist
 								</Button>
 							</form>
@@ -576,7 +429,7 @@ export const SystemPage: React.FC = () => {
 							<Megaphone className="h-5 w-5" />
 							Game Notices
 						</CardTitle>
-						<Button size="sm" variant="outline" onClick={() => setNoticeModalOpen(true)}>
+						<Button size="sm" variant="outline" onClick={() => setNoticeModalOpen(true)} disabled={!canNoticesWrite}>
 							New Notice
 						</Button>
 					</CardHeader>
@@ -592,13 +445,23 @@ export const SystemPage: React.FC = () => {
 									<div className="flex items-center justify-between text-xs text-muted-foreground">
 										<span>{notice.time_desc}</span>
 										<div className="space-x-2">
-											<button type="button" className="hover:text-primary" onClick={() => setEditingNotice(notice)}>
+											<button
+												type="button"
+												className={`hover:text-primary ${canNoticesWrite ? '' : 'opacity-50 cursor-not-allowed'}`}
+												onClick={() => {
+													if (!canNoticesWrite) return
+													setEditingNotice(notice)
+												}}
+											>
 												Edit
 											</button>
 											<button
 												type="button"
 												className="hover:text-destructive"
-												onClick={() => deleteNoticeMutation.mutate(notice.id)}
+												onClick={() => {
+													if (!canNoticesWrite) return
+													deleteNoticeMutation.mutate(notice.id)
+												}}
 											>
 												Delete
 											</button>

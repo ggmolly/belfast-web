@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Eye, Search } from 'lucide-react'
 import type React from 'react'
 import { useMemo, useRef, useState } from 'react'
+import { usePermissions } from '../components/PermissionsContext'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -16,6 +17,8 @@ import type { PlayerSummary } from '../types'
 const PAGE_SIZE = 50
 
 export const PlayersPage: React.FC = () => {
+	const perms = usePermissions()
+	const canRead = perms.can('players', 'read_any')
 	const [name, setName] = useState('')
 	const [filter, setFilter] = useState('')
 	const [minLevelInput, setMinLevelInput] = useState('')
@@ -37,7 +40,17 @@ export const PlayersPage: React.FC = () => {
 				filter: debouncedFilter || undefined,
 				min_level: debouncedMinLevel ? Number(debouncedMinLevel) : undefined,
 			}),
+		enabled: canRead,
 	})
+
+	if (!canRead) {
+		return (
+			<div className="space-y-6">
+				<h1 className="text-3xl font-bold tracking-tight">Players</h1>
+				<p className="text-sm text-muted-foreground">You do not have permission to view players.</p>
+			</div>
+		)
+	}
 
 	const players = playersQuery.data?.data.players ?? []
 	const total = playersQuery.data?.data.meta.total ?? 0

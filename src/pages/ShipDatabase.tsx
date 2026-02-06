@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search } from 'lucide-react'
 import type React from 'react'
 import { useMemo, useRef, useState } from 'react'
+import { usePermissions } from '../components/PermissionsContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
@@ -11,6 +12,8 @@ import { api } from '../services/api'
 import type { ShipSummary } from '../types'
 
 export const ShipDatabasePage: React.FC = () => {
+	const perms = usePermissions()
+	const canRead = perms.can('game_data', 'read_any')
 	const [name, setName] = useState('')
 	const [rarity, setRarity] = useState('')
 	const [nationality, setNationality] = useState('')
@@ -35,7 +38,17 @@ export const ShipDatabasePage: React.FC = () => {
 			})
 			return { ships: response.data.ships, total: response.data.meta.total }
 		},
+		enabled: canRead,
 	})
+
+	if (!canRead) {
+		return (
+			<div className="space-y-6">
+				<h1 className="text-3xl font-bold tracking-tight">Ship Database</h1>
+				<p className="text-sm text-muted-foreground">You do not have permission to view game data.</p>
+			</div>
+		)
+	}
 
 	const ships = shipsQuery.data?.ships ?? []
 	const total = shipsQuery.data?.total ?? 0

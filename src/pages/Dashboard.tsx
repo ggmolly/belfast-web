@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Play, Power, RotateCcw, Server, Users } from 'lucide-react'
 import type React from 'react'
 import { useMemo } from 'react'
+import { usePermissions } from '../components/PermissionsContext'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { api } from '../services/api'
@@ -23,6 +24,10 @@ const formatUptime = (seconds: number): string => {
 
 export const DashboardPage: React.FC = () => {
 	const queryClient = useQueryClient()
+	const perms = usePermissions()
+	const canServerRead = perms.can('server', 'read_any')
+	const canServerWrite = perms.can('server', 'write_any')
+	const canPlayersRead = perms.can('players', 'read_any')
 	const statusQuery = useQuery({
 		queryKey: ['server', 'status'],
 		queryFn: api.getServerStatus,
@@ -31,26 +36,31 @@ export const DashboardPage: React.FC = () => {
 	const uptimeQuery = useQuery({
 		queryKey: ['server', 'uptime'],
 		queryFn: api.getServerUptime,
+		enabled: canServerRead,
 		refetchInterval: 10000,
 	})
 	const metricsQuery = useQuery({
 		queryKey: ['server', 'metrics'],
 		queryFn: api.getServerMetrics,
+		enabled: canServerRead,
 		refetchInterval: 10000,
 	})
 	const maintenanceQuery = useQuery({
 		queryKey: ['server', 'maintenance'],
 		queryFn: api.getMaintenanceStatus,
+		enabled: canServerRead,
 		refetchInterval: 10000,
 	})
 	const playersQuery = useQuery({
 		queryKey: ['players', { offset: 0, limit: 1 }],
 		queryFn: () => api.getPlayers({ offset: 0, limit: 1 }),
+		enabled: canPlayersRead,
 		refetchInterval: 10000,
 	})
 	const connectionsQuery = useQuery({
 		queryKey: ['server', 'connections'],
 		queryFn: api.getConnections,
+		enabled: canServerRead,
 		refetchInterval: 10000,
 	})
 
@@ -118,7 +128,7 @@ export const DashboardPage: React.FC = () => {
 						<Users className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{totalPlayers}</div>
+						<div className="text-2xl font-bold">{canPlayersRead ? totalPlayers : '—'}</div>
 						<p className="text-xs text-muted-foreground">All registered accounts</p>
 					</CardContent>
 				</Card>
@@ -148,8 +158,10 @@ export const DashboardPage: React.FC = () => {
 						<Activity className="h-4 w-4 text-muted-foreground" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{status?.client_count ?? metrics?.client_count ?? 0}</div>
-						<p className="text-xs text-muted-foreground">Uptime: {formattedUptime}</p>
+						<div className="text-2xl font-bold">
+							{canServerRead ? (status?.client_count ?? metrics?.client_count ?? 0) : (status?.client_count ?? 0)}
+						</div>
+						<p className="text-xs text-muted-foreground">Uptime: {canServerRead ? formattedUptime : '—'}</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -160,6 +172,11 @@ export const DashboardPage: React.FC = () => {
 						<CardTitle>Server Control</CardTitle>
 					</CardHeader>
 					<CardContent>
+						{!canServerRead ? (
+							<p className="mb-4 text-sm text-muted-foreground">
+								Server controls are hidden because you lack `server` permission.
+							</p>
+						) : null}
 						<div className="space-y-4">
 							<div className="flex items-center justify-between rounded-lg border border-border p-4">
 								<div>
@@ -169,7 +186,7 @@ export const DashboardPage: React.FC = () => {
 								<Button
 									variant={maintenanceEnabled ? 'secondary' : 'destructive'}
 									onClick={() => toggleMaintenance.mutate(!maintenanceEnabled)}
-									disabled={toggleMaintenance.isPending}
+									disabled={!canServerWrite || toggleMaintenance.isPending}
 								>
 									{maintenanceEnabled ? 'End Maintenance' : 'Start Maintenance'}
 								</Button>
@@ -183,7 +200,7 @@ export const DashboardPage: React.FC = () => {
 									<Button
 										variant="secondary"
 										onClick={() => startServerMutation.mutate()}
-										disabled={startServerMutation.isPending}
+										disabled={!canServerWrite || startServerMutation.isPending}
 									>
 										<Play className="mr-2 h-4 w-4" />
 										Start
@@ -191,7 +208,7 @@ export const DashboardPage: React.FC = () => {
 									<Button
 										variant="destructive"
 										onClick={() => stopServerMutation.mutate()}
-										disabled={stopServerMutation.isPending}
+										disabled={!canServerWrite || stopServerMutation.isPending}
 									>
 										<Power className="mr-2 h-4 w-4" />
 										Stop
@@ -199,7 +216,7 @@ export const DashboardPage: React.FC = () => {
 									<Button
 										variant="secondary"
 										onClick={() => restartServerMutation.mutate()}
-										disabled={restartServerMutation.isPending}
+										disabled={!canServerWrite || restartServerMutation.isPending}
 									>
 										<RotateCcw className="mr-2 h-4 w-4" />
 										Restart

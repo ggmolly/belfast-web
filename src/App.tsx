@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './components/AuthContext'
+import { PermissionsProvider } from './components/PermissionsContext'
 import { ThemeProvider, useTheme } from './components/ThemeContext'
 import { router } from './router'
 
@@ -25,8 +26,10 @@ const App = () => {
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider defaultTheme="system" storageKey="belfast-admin-theme">
 				<AuthProvider>
-					<AppToaster />
-					<RouterProvider router={router} />
+					<PermissionsProvider>
+						<AppToaster />
+						<RouterProvider router={router} />
+					</PermissionsProvider>
 				</AuthProvider>
 			</ThemeProvider>
 		</QueryClientProvider>

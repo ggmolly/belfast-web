@@ -5,6 +5,7 @@ import type React from 'react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { DropTooltips } from '../components/DropTooltips'
+import { usePermissions } from '../components/PermissionsContext'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -33,6 +34,10 @@ type ExchangeFormValues = {
 
 export const ExchangeCodesPage: React.FC = () => {
 	const queryClient = useQueryClient()
+	const perms = usePermissions()
+	const canRead = perms.can('exchange_codes', 'read_any')
+	const canWrite = perms.can('exchange_codes', 'write_any')
+	const canGameData = perms.can('game_data', 'read_any')
 	const [exchangeModalOpen, setExchangeModalOpen] = useState(false)
 	const [redeemCodeId, setRedeemCodeId] = useState('')
 	const [redeemCommanderId, setRedeemCommanderId] = useState('')
@@ -40,19 +45,32 @@ export const ExchangeCodesPage: React.FC = () => {
 	const exchangeCodesQuery = useQuery({
 		queryKey: ['exchange-codes', { offset: 0, limit: PAGE_SIZE }],
 		queryFn: () => api.getExchangeCodes({ offset: 0, limit: PAGE_SIZE }),
+		enabled: canRead,
 	})
 	const shipsCatalogQuery = useQuery({
 		queryKey: ['ships', { all: true }],
 		queryFn: () => api.getShips({}),
+		enabled: canRead && canGameData,
 	})
 	const itemsCatalogQuery = useQuery({
 		queryKey: ['items', { all: true }],
 		queryFn: () => api.getItems({}),
+		enabled: canRead && canGameData,
 	})
 	const skinsCatalogQuery = useQuery({
 		queryKey: ['skins', { all: true }],
 		queryFn: () => api.getSkins({}),
+		enabled: canRead && canGameData,
 	})
+
+	if (!canRead) {
+		return (
+			<div className="space-y-6">
+				<h1 className="text-3xl font-bold tracking-tight">Exchange Codes</h1>
+				<p className="text-sm text-muted-foreground">You do not have permission to view exchange codes.</p>
+			</div>
+		)
+	}
 
 	const shipsCatalog = shipsCatalogQuery.data?.data.ships ?? []
 	const itemsCatalog = itemsCatalogQuery.data?.data.items ?? []
@@ -129,6 +147,10 @@ export const ExchangeCodesPage: React.FC = () => {
 					type: Number(reward.dropType),
 					count: Number(reward.count),
 				}))
+			if (!canWrite) {
+				toast.error('You do not have permission to create exchange codes.')
+				return
+			}
 			await createExchangeMutation.mutateAsync({
 				code: value.code,
 				platform: value.platform,
@@ -180,7 +202,7 @@ export const ExchangeCodesPage: React.FC = () => {
 							<Tag className="h-5 w-5" />
 							Codes
 						</CardTitle>
-						<Button size="sm" variant="secondary" onClick={() => setExchangeModalOpen(true)}>
+						<Button size="sm" variant="secondary" onClick={() => setExchangeModalOpen(true)} disabled={!canWrite}>
 							Generate Code
 						</Button>
 					</CardHeader>
@@ -246,6 +268,10 @@ export const ExchangeCodesPage: React.FC = () => {
 							<form
 								onSubmit={(event) => {
 									event.preventDefault()
+									if (!canWrite) {
+										toast.error('You do not have permission to redeem exchange codes.')
+										return
+									}
 									if (!isRedeemReady) return
 									createRedeemMutation.mutate({
 										codeId: Number(redeemCodeIdNumber),
@@ -278,7 +304,11 @@ export const ExchangeCodesPage: React.FC = () => {
 										placeholder="9001"
 									/>
 								</div>
-								<Button type="submit" className="w-full" disabled={!isRedeemReady || createRedeemMutation.isPending}>
+								<Button
+									type="submit"
+									className="w-full"
+									disabled={!canWrite || !isRedeemReady || createRedeemMutation.isPending}
+								>
 									Redeem Code
 								</Button>
 							</form>

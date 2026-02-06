@@ -1,5 +1,9 @@
 import type {
 	APIResponse,
+	AccountOverridesResponse,
+	AccountOverridesUpdateRequest,
+	AccountRolesResponse,
+	AccountRolesUpdateRequest,
 	ActivityAllowlistPayload,
 	AdminUserCreateRequest,
 	AdminUserListResponse,
@@ -24,6 +28,8 @@ import type {
 	ItemListResponse,
 	KickPlayerRequest,
 	KickPlayerResponse,
+	MeCommanderResponse,
+	MePermissionsResponse,
 	NoticeListResponse,
 	NoticeSummary,
 	PasskeyAuthenticateOptionsRequest,
@@ -34,6 +40,7 @@ import type {
 	PasskeyRegisterOptionsResponse,
 	PasskeyRegisterResponse,
 	PasskeyRegisterVerifyRequest,
+	PermissionListResponse,
 	PlayerDetailResponse,
 	PlayerItemResponse,
 	PlayerListResponse,
@@ -41,6 +48,9 @@ import type {
 	PlayerShipResponse,
 	PlayerSkinResponse,
 	ResourceUpdateRequest,
+	RoleListResponse,
+	RolePolicyResponse,
+	RolePolicyUpdateRequest,
 	SendMailRequest,
 	ServerMaintenanceResponse,
 	ServerMaintenanceUpdate,
@@ -53,6 +63,8 @@ import type {
 	UpdatePlayerItemQuantityRequest,
 	UserAuthLoginRequest,
 	UserAuthLoginResponse,
+	UserPermissionPolicyResponse,
+	UserPermissionPolicyUpdateRequest,
 	UserRegistrationChallengeRequest,
 	UserRegistrationChallengeResponse,
 	UserRegistrationStatusResponse,
@@ -159,6 +171,8 @@ export const api = {
 		}),
 	userAuthLogin: (payload: UserAuthLoginRequest) =>
 		request<UserAuthLoginResponse>('/user/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+	mePermissions: () => request<MePermissionsResponse>('/me/permissions'),
+	meCommander: () => request<MeCommanderResponse>('/me/commander'),
 	createRegistrationChallenge: (payload: UserRegistrationChallengeRequest) =>
 		request<UserRegistrationChallengeResponse>('/registration/challenges', {
 			method: 'POST',
@@ -181,6 +195,37 @@ export const api = {
 	deleteAdminUser: (id: string) => requestVoid(`/admin/users/${id}`, { method: 'DELETE' }),
 	resetAdminPassword: (id: string, payload: AdminUserPasswordUpdateRequest) =>
 		requestVoid(`/admin/users/${id}/password`, { method: 'PUT', body: JSON.stringify(payload) }),
+
+	adminAuthzListRoles: () => request<RoleListResponse>('/admin/authz/roles'),
+	adminAuthzListPermissions: () => request<PermissionListResponse>('/admin/authz/permissions'),
+	adminAuthzGetRolePolicy: (role: string) =>
+		request<RolePolicyResponse>(`/admin/authz/roles/${encodeURIComponent(role)}`),
+	adminAuthzReplaceRolePolicy: (role: string, payload: RolePolicyUpdateRequest) =>
+		request<RolePolicyResponse>(`/admin/authz/roles/${encodeURIComponent(role)}`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		}),
+	adminAuthzGetAccountRoles: (accountId: string) =>
+		request<AccountRolesResponse>(`/admin/authz/accounts/${encodeURIComponent(accountId)}/roles`),
+	adminAuthzReplaceAccountRoles: (accountId: string, payload: AccountRolesUpdateRequest) =>
+		request<AccountRolesResponse>(`/admin/authz/accounts/${encodeURIComponent(accountId)}/roles`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		}),
+	adminAuthzGetAccountOverrides: (accountId: string) =>
+		request<AccountOverridesResponse>(`/admin/authz/accounts/${encodeURIComponent(accountId)}/overrides`),
+	adminAuthzReplaceAccountOverrides: (accountId: string, payload: AccountOverridesUpdateRequest) =>
+		request<AccountOverridesResponse>(`/admin/authz/accounts/${encodeURIComponent(accountId)}/overrides`, {
+			method: 'PUT',
+			body: JSON.stringify(payload),
+		}),
+
+	getPlayerPermissionPolicy: () => request<UserPermissionPolicyResponse>('/admin/permission-policy'),
+	updatePlayerPermissionPolicy: (payload: UserPermissionPolicyUpdateRequest) =>
+		request<UserPermissionPolicyResponse>('/admin/permission-policy', {
+			method: 'PATCH',
+			body: JSON.stringify(payload),
+		}),
 	getServerStatus: () => request<ServerStatusResponse>('/server/status'),
 	getServerMetrics: () => request<ServerMetricsResponse>('/server/metrics'),
 	getServerUptime: () => request<ServerUptimeResponse>('/server/uptime'),

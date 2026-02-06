@@ -285,6 +285,92 @@ export interface APIError {
 	details?: Record<string, unknown>
 }
 
+export type PermissionOp = 'read_self' | 'read_any' | 'write_self' | 'write_any'
+
+export interface PermissionPolicyEntry {
+	key: string
+	read_self: boolean
+	read_any: boolean
+	write_self: boolean
+	write_any: boolean
+}
+
+export interface MePermissionsResponse {
+	roles: string[]
+	permissions: PermissionPolicyEntry[]
+}
+
+export interface MeCommanderResponse {
+	commander_id: number
+	name: string
+	level: number
+}
+
+export interface RoleSummary {
+	name: string
+	description: string
+	updated_at: string
+	updated_by: string
+}
+
+export interface RoleListResponse {
+	roles: RoleSummary[]
+}
+
+export interface PermissionSummary {
+	key: string
+	description: string
+}
+
+export interface PermissionListResponse {
+	permissions: PermissionSummary[]
+}
+
+export interface RolePolicyResponse {
+	role: string
+	permissions: PermissionPolicyEntry[]
+	available_keys: string[]
+	updated_at: string
+	updated_by: string
+}
+
+export interface RolePolicyUpdateRequest {
+	permissions: PermissionPolicyEntry[]
+}
+
+export interface AccountRolesResponse {
+	account_id: string
+	roles: string[]
+}
+
+export interface AccountRolesUpdateRequest {
+	roles: string[]
+}
+
+export type AccountOverrideMode = 'allow' | 'deny'
+
+export interface AccountOverrideEntry {
+	key: string
+	mode: AccountOverrideMode
+	read_self: boolean
+	read_any: boolean
+	write_self: boolean
+	write_any: boolean
+}
+
+export interface AccountOverridesResponse {
+	account_id: string
+	overrides: AccountOverrideEntry[]
+}
+
+export interface AccountOverridesUpdateRequest {
+	overrides: AccountOverrideEntry[]
+}
+
+export interface UserPermissionPolicyResponse extends RolePolicyResponse {}
+
+export interface UserPermissionPolicyUpdateRequest extends RolePolicyUpdateRequest {}
+
 export interface AdminUser {
 	created_at: string
 	disabled: boolean

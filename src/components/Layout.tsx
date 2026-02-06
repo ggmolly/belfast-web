@@ -1,8 +1,26 @@
+import { useQuery } from '@tanstack/react-query'
 import { Link, Outlet, useMatchRoute } from '@tanstack/react-router'
-import { Anchor, DoorOpen, Laptop, LayoutDashboard, Moon, Settings, Ship, Sun, Tag, Users } from 'lucide-react'
+import {
+	Anchor,
+	DoorOpen,
+	Laptop,
+	LayoutDashboard,
+	LockKeyhole,
+	Moon,
+	Settings,
+	Shield,
+	ShieldCheck,
+	Ship,
+	Sun,
+	Tag,
+	Users,
+} from 'lucide-react'
 import type React from 'react'
 import { LoginPage } from '../pages/Login'
+import { RegisterPage } from '../pages/Register'
+import { api } from '../services/api'
 import { useAuth } from './AuthContext'
+import { usePermissions } from './PermissionsContext'
 import { useTheme } from './ThemeContext'
 import { Button } from './ui/Button'
 
@@ -30,16 +48,20 @@ const SidebarItem: React.FC<{ to: string; icon: React.ReactNode; label: string }
 export const Layout: React.FC = () => {
 	const { theme, setTheme } = useTheme()
 	const auth = useAuth()
-	const isAdmin = auth.isAdminAuthenticated
-	const isPlayer = auth.isPlayerAuthenticated
+	const perms = usePermissions()
+	const matchRoute = useMatchRoute()
+	const isRegisterRoute = Boolean(matchRoute({ to: '/register' }))
 	const handleSignOut = async () => {
-		if (isAdmin) {
-			await auth.logout()
-		}
-		if (isPlayer) {
-			auth.playerLogout()
-		}
+		await auth.logout()
 	}
+
+	const commanderQuery = useQuery({
+		queryKey: ['me', 'commander', auth.user?.id],
+		queryFn: api.meCommander,
+		enabled: auth.isAuthenticated && Boolean(auth.user) && !auth.user?.username?.trim(),
+		refetchOnMount: 'always',
+		retry: false,
+	})
 
 	if (auth.isLoading && !auth.isAuthenticated) {
 		return (
@@ -52,9 +74,17 @@ export const Layout: React.FC = () => {
 		)
 	}
 
-	if (!isAdmin && !isPlayer) {
+	if (!auth.isAuthenticated) {
+		if (isRegisterRoute) {
+			return <RegisterPage />
+		}
 		return <LoginPage />
 	}
+
+	const username = auth.user?.username?.trim()
+	const isPlayerSession = !username
+	const commanderName = commanderQuery.data?.data.name?.trim()
+	const displayName = isPlayerSession ? commanderName || '' : username || auth.user?.id || 'Unknown'
 
 	return (
 		<div className="grid min-h-screen w-full bg-background text-foreground transition-colors duration-300 lg:grid-cols-[280px_1fr]">
@@ -74,18 +104,34 @@ export const Layout: React.FC = () => {
 								Overview
 							</div>
 							<SidebarItem to="/" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />
+							<SidebarItem to="/me" icon={<LockKeyhole className="h-4 w-4" />} label="My Access" />
+							<SidebarItem to="/security" icon={<ShieldCheck className="h-4 w-4" />} label="Security" />
 
 							<div className="mb-2 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 								Management
 							</div>
-							<SidebarItem to="/players" icon={<Users className="h-4 w-4" />} label="Players" />
-							<SidebarItem to="/ships" icon={<Ship className="h-4 w-4" />} label="Ship Database" />
+							{perms.can('players', 'read_any') ? (
+								<SidebarItem to="/players" icon={<Users className="h-4 w-4" />} label="Players" />
+							) : null}
+							{perms.can('game_data', 'read_any') ? (
+								<SidebarItem to="/ships" icon={<Ship className="h-4 w-4" />} label="Ship Database" />
+							) : null}
 
 							<div className="mb-2 mt-6 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 								System
 							</div>
-							<SidebarItem to="/exchange-codes" icon={<Tag className="h-4 w-4" />} label="Exchange Codes" />
-							<SidebarItem to="/system" icon={<Settings className="h-4 w-4" />} label="Configuration" />
+							{perms.can('exchange_codes', 'read_any') ? (
+								<SidebarItem to="/exchange-codes" icon={<Tag className="h-4 w-4" />} label="Exchange Codes" />
+							) : null}
+							{perms.can('admin.users', 'read_any') ||
+							perms.can('notices', 'read_any') ||
+							perms.can('activities', 'read_any') ||
+							perms.can('server', 'read_any') ? (
+								<SidebarItem to="/system" icon={<Settings className="h-4 w-4" />} label="System" />
+							) : null}
+							{perms.can('admin.authz', 'read_any') ? (
+								<SidebarItem to="/access" icon={<Shield className="h-4 w-4" />} label="Access Control" />
+							) : null}
 						</nav>
 					</div>
 					<div className="mt-auto space-y-4 border-t border-border/50 bg-muted/20 p-4">
@@ -93,7 +139,17 @@ export const Layout: React.FC = () => {
 							<p className="text-xs font-medium text-muted-foreground">
 								Signed in as{' '}
 								<span className="font-bold text-foreground">
-									{auth.user?.username ?? (auth.playerUser ? `Commander ${auth.playerUser.commander_id}` : 'Unknown')}
+									{isPlayerSession ? (
+										commanderName ? (
+											commanderName
+										) : commanderQuery.isLoading ? (
+											<span className="inline-block h-3 w-28 animate-pulse rounded bg-muted align-middle" />
+										) : (
+											'Commander'
+										)
+									) : (
+										displayName
+									)}
 								</span>
 							</p>
 							<Button

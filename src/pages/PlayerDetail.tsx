@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import { usePermissions } from '../components/PermissionsContext'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -33,6 +34,9 @@ export const PlayerDetailPage: React.FC = () => {
 	const { playerId } = useParams({ from: '/players/$playerId' })
 	const navigate = useNavigate()
 	const queryClient = useQueryClient()
+	const perms = usePermissions()
+	const canRead = perms.can('players', 'read_any')
+	const canWrite = perms.can('players', 'write_any')
 
 	const [activeTab, setActiveTab] = useState<TabKey>('overview')
 	const [editProfileOpen, setEditProfileOpen] = useState(false)
@@ -56,7 +60,22 @@ export const PlayerDetailPage: React.FC = () => {
 		amount: number
 	} | null>(null)
 
+	useEffect(() => {
+		if (!canWrite && activeTab === 'actions') {
+			setActiveTab('overview')
+		}
+	}, [activeTab, canWrite])
+
 	const playerNumericId = Number(playerId)
+
+	if (!canRead) {
+		return (
+			<div className="space-y-6">
+				<h1 className="text-3xl font-bold tracking-tight">Player</h1>
+				<p className="text-sm text-muted-foreground">You do not have permission to view players.</p>
+			</div>
+		)
+	}
 
 	const playerQuery = useQuery({
 		queryKey: ['player', playerNumericId],
@@ -485,8 +504,11 @@ export const PlayerDetailPage: React.FC = () => {
 						<h1 className="text-3xl font-bold tracking-tight">{player.name}</h1>
 						<button
 							type="button"
-							onClick={() => setEditProfileOpen(true)}
-							className="text-muted-foreground hover:text-primary"
+							onClick={() => {
+								if (!canWrite) return
+								setEditProfileOpen(true)
+							}}
+							className={`text-muted-foreground ${canWrite ? 'hover:text-primary' : 'opacity-50 cursor-not-allowed'}`}
 						>
 							<Edit2 className="h-4 w-4" />
 						</button>
@@ -504,20 +526,22 @@ export const PlayerDetailPage: React.FC = () => {
 			</div>
 
 			<div className="flex border-b border-border">
-				{(['overview', 'ships', 'inventory', 'skins', 'actions'] as TabKey[]).map((tab) => (
-					<button
-						type="button"
-						key={tab}
-						onClick={() => setActiveTab(tab)}
-						className={`border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-							activeTab === tab
-								? 'border-primary text-primary'
-								: 'border-transparent text-muted-foreground hover:text-foreground'
-						}`}
-					>
-						{tab.charAt(0).toUpperCase() + tab.slice(1)}
-					</button>
-				))}
+				{(['overview', 'ships', 'inventory', 'skins', canWrite ? 'actions' : null].filter(Boolean) as TabKey[]).map(
+					(tab) => (
+						<button
+							type="button"
+							key={tab}
+							onClick={() => setActiveTab(tab)}
+							className={`border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
+								activeTab === tab
+									? 'border-primary text-primary'
+									: 'border-transparent text-muted-foreground hover:text-foreground'
+							}`}
+						>
+							{tab.charAt(0).toUpperCase() + tab.slice(1)}
+						</button>
+					),
+				)}
 			</div>
 
 			{activeTab === 'overview' ? (
@@ -534,6 +558,7 @@ export const PlayerDetailPage: React.FC = () => {
 										key={resource.resource_id}
 										className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 text-left transition-colors hover:bg-muted/40"
 										onClick={() => {
+											if (!canWrite) return
 											setSelectedResource({
 												resourceId: resource.resource_id,
 												name: resource.name,
@@ -575,18 +600,28 @@ export const PlayerDetailPage: React.FC = () => {
 									variant="outline"
 									className="w-full text-destructive"
 									onClick={() => setKickModalOpen(true)}
-									disabled={!player.online}
+									disabled={!canWrite || !player.online}
 								>
 									<PowerOff className="mr-2 h-4 w-4" />
 									Kick Player
 								</Button>
 								{player.banned ? (
-									<Button variant="outline" className="w-full" onClick={() => unbanMutation.mutate()}>
+									<Button
+										variant="outline"
+										className="w-full"
+										onClick={() => unbanMutation.mutate()}
+										disabled={!canWrite}
+									>
 										<UserX className="mr-2 h-4 w-4" />
 										Unban Player
 									</Button>
 								) : (
-									<Button variant="destructive" className="w-full" onClick={() => setBanModalOpen(true)}>
+									<Button
+										variant="destructive"
+										className="w-full"
+										onClick={() => setBanModalOpen(true)}
+										disabled={!canWrite}
+									>
 										<ShieldAlert className="mr-2 h-4 w-4" />
 										Ban Player
 									</Button>
@@ -601,7 +636,7 @@ export const PlayerDetailPage: React.FC = () => {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Dock ({ships.length})</CardTitle>
-						<Button size="sm" onClick={() => setAddShipOpen(true)}>
+						<Button size="sm" onClick={() => setAddShipOpen(true)} disabled={!canWrite}>
 							<Anchor className="mr-2 h-4 w-4" />
 							Add Ship
 						</Button>
@@ -635,7 +670,7 @@ export const PlayerDetailPage: React.FC = () => {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Depot ({items.length})</CardTitle>
-						<Button size="sm" onClick={() => setAddItemOpen(true)}>
+						<Button size="sm" onClick={() => setAddItemOpen(true)} disabled={!canWrite}>
 							<Plus className="mr-2 h-4 w-4" />
 							Add Item
 						</Button>
@@ -657,6 +692,7 @@ export const PlayerDetailPage: React.FC = () => {
 										key={item.item_id}
 										className="relative flex flex-col items-center rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-muted/50"
 										onClick={() => {
+											if (!canWrite) return
 											setSelectedInventoryItem({
 												itemId: item.item_id,
 												name: item.name,
@@ -685,7 +721,7 @@ export const PlayerDetailPage: React.FC = () => {
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between">
 						<CardTitle>Skins ({playerSkins.length})</CardTitle>
-						<Button size="sm" onClick={() => setAddSkinOpen(true)}>
+						<Button size="sm" onClick={() => setAddSkinOpen(true)} disabled={!canWrite}>
 							<ImageIcon className="mr-2 h-4 w-4" />
 							Give Skin
 						</Button>
