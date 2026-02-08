@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { queryKeys } from '../lib/queryKeys'
 import { api } from '../services/api'
 import type {
 	AccountOverrideEntry,
@@ -83,7 +84,7 @@ export const AccessControlPage: React.FC = () => {
 		mutationFn: (payload: RolePolicyUpdateRequest) => api.adminAuthzReplaceRolePolicy(role, payload),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ['admin', 'authz', 'roles', role] })
-			await queryClient.invalidateQueries({ queryKey: ['me', 'permissions'] })
+			await queryClient.invalidateQueries({ queryKey: queryKeys.me.permissions() })
 			setDraftPolicy(null)
 			toast.success('Role policy saved')
 		},
@@ -114,6 +115,7 @@ export const AccessControlPage: React.FC = () => {
 			api.adminAuthzReplaceAccountRoles(payload.accountId, { roles: payload.roles }),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ['admin', 'authz', 'accounts', accountId, 'roles'] })
+			await queryClient.invalidateQueries({ queryKey: queryKeys.me.permissions() })
 			toast.success('Account roles updated')
 			setDraftRoles(null)
 		},
@@ -129,6 +131,7 @@ export const AccessControlPage: React.FC = () => {
 			api.adminAuthzReplaceAccountOverrides(payload.accountId, { overrides: payload.overrides }),
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ['admin', 'authz', 'accounts', accountId, 'overrides'] })
+			await queryClient.invalidateQueries({ queryKey: queryKeys.me.permissions() })
 			toast.success('Overrides updated')
 			setDraftOverrides(null)
 		},

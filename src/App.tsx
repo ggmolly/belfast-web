@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from './components/AuthContext'
 import { PermissionsProvider } from './components/PermissionsContext'
 import { ThemeProvider, useTheme } from './components/ThemeContext'
+import { TooltipProvider } from './components/ui/tooltip'
 import { router } from './router'
 
 const queryClient = new QueryClient({
@@ -28,7 +29,9 @@ const App = () => {
 				<AuthProvider>
 					<PermissionsProvider>
 						<AppToaster />
-						<RouterProvider router={router} />
+						<TooltipProvider>
+							<RouterProvider router={router} />
+						</TooltipProvider>
 					</PermissionsProvider>
 				</AuthProvider>
 			</ThemeProvider>

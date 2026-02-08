@@ -113,9 +113,13 @@ export const RegisterPage: React.FC = () => {
 	const loginMutation = useMutation({
 		mutationFn: () => api.userAuthLogin({ commander_id: commanderIdNumber, password }),
 		onSuccess: async () => {
-			await auth.refreshSession()
-			toast.success('Signed in')
-			navigate({ to: '/me' })
+			try {
+				await auth.refreshSession()
+				toast.success('Signed in')
+				navigate({ to: '/me' })
+			} catch (error) {
+				toast.error('Signed in, but failed to refresh session', { description: (error as Error).message })
+			}
 		},
 		onError: (error) => {
 			toast.error('Sign in failed', { description: (error as Error).message })
@@ -168,7 +172,7 @@ export const RegisterPage: React.FC = () => {
 				</CardHeader>
 				<CardContent className="space-y-6">
 					<div className="flex items-center justify-between">
-						<Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+						<Link to="/login" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
 							<ArrowLeft className="mr-2 h-4 w-4" />
 							Back
 						</Link>
@@ -257,7 +261,7 @@ export const RegisterPage: React.FC = () => {
 								<KeyRound className="mr-2 h-4 w-4" />
 								Sign in
 							</Button>
-							<Button variant="outline" className="w-full" onClick={() => navigate({ to: '/' })}>
+							<Button variant="outline" className="w-full" onClick={() => navigate({ to: '/login' })}>
 								Go to login
 							</Button>
 						</div>

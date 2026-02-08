@@ -8,6 +8,7 @@ import { useAuth } from '../components/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { queryKeys } from '../lib/queryKeys'
 import { parseRequestOptions, serializeAuthenticationCredential } from '../lib/webauthn'
 import { api } from '../services/api'
 
@@ -18,7 +19,7 @@ export const LoginPage = () => {
 	const [passkeyLoading, setPasskeyLoading] = useState(false)
 
 	const bootstrapStatusQuery = useQuery({
-		queryKey: ['auth', 'bootstrap-status'],
+		queryKey: queryKeys.auth.bootstrapStatus(),
 		queryFn: api.authBootstrapStatus,
 		retry: false,
 	})
@@ -42,8 +43,12 @@ export const LoginPage = () => {
 	const playerLoginMutation = useMutation({
 		mutationFn: (payload: { commander_id: number; password: string }) => api.userAuthLogin(payload),
 		onSuccess: async () => {
-			await auth.refreshSession()
-			toast.success('Signed in')
+			try {
+				await auth.refreshSession()
+				toast.success('Signed in')
+			} catch (error) {
+				toast.error('Signed in, but failed to refresh session', { description: (error as Error).message })
+			}
 		},
 		onError: (error) => {
 			toast.error('Sign in failed', { description: (error as Error).message })
@@ -67,8 +72,12 @@ export const LoginPage = () => {
 				credential: serializeAuthenticationCredential(credential),
 				username: username || undefined,
 			})
-			await auth.refreshSession()
-			toast.success('Signed in with passkey')
+			try {
+				await auth.refreshSession()
+				toast.success('Signed in with passkey')
+			} catch (error) {
+				toast.error('Signed in, but failed to refresh session', { description: (error as Error).message })
+			}
 		} catch (error) {
 			toast.error('Passkey sign-in failed', { description: (error as Error).message })
 		} finally {
@@ -79,7 +88,11 @@ export const LoginPage = () => {
 	const handleBootstrap = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		if (!username.trim() || !password) return
-		await bootstrapMutation.mutateAsync({ username, password })
+		try {
+			await bootstrapMutation.mutateAsync({ username, password })
+		} catch {
+			// AuthContext mutation already surfaces an error toast.
+		}
 	}
 
 	const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
@@ -95,7 +108,11 @@ export const LoginPage = () => {
 			await playerLoginMutation.mutateAsync({ commander_id: commanderId, password })
 			return
 		}
-		await loginMutation.mutateAsync({ username: identifier, password })
+		try {
+			await loginMutation.mutateAsync({ username: identifier, password })
+		} catch {
+			// AuthContext mutation already surfaces an error toast.
+		}
 	}
 
 	return (

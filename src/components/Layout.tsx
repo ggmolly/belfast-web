@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, Outlet, useMatchRoute } from '@tanstack/react-router'
+import { Link, Outlet, useMatchRoute, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
 	Anchor,
 	DoorOpen,
@@ -16,8 +16,8 @@ import {
 	Users,
 } from 'lucide-react'
 import type React from 'react'
-import { LoginPage } from '../pages/Login'
-import { RegisterPage } from '../pages/Register'
+import { useEffect } from 'react'
+import { queryKeys } from '../lib/queryKeys'
 import { api } from '../services/api'
 import { useAuth } from './AuthContext'
 import { usePermissions } from './PermissionsContext'
@@ -49,14 +49,34 @@ export const Layout: React.FC = () => {
 	const { theme, setTheme } = useTheme()
 	const auth = useAuth()
 	const perms = usePermissions()
-	const matchRoute = useMatchRoute()
-	const isRegisterRoute = Boolean(matchRoute({ to: '/register' }))
+	const navigate = useNavigate()
+	const pathname = useRouterState({ select: (state) => state.location.pathname })
+	const isPublicRoute =
+		pathname === '/login' ||
+		pathname.startsWith('/login/') ||
+		pathname === '/register' ||
+		pathname.startsWith('/register/')
 	const handleSignOut = async () => {
-		await auth.logout()
+		try {
+			await auth.logout()
+		} catch {
+			// AuthContext mutation already surfaces an error toast.
+		}
 	}
 
+	useEffect(() => {
+		if (auth.isLoading) return
+		if (!auth.isAuthenticated && !isPublicRoute) {
+			navigate({ to: '/login', replace: true })
+			return
+		}
+		if (auth.isAuthenticated && isPublicRoute) {
+			navigate({ to: '/', replace: true })
+		}
+	}, [auth.isAuthenticated, auth.isLoading, isPublicRoute, navigate])
+
 	const commanderQuery = useQuery({
-		queryKey: ['me', 'commander', auth.user?.id],
+		queryKey: queryKeys.me.commander(),
 		queryFn: api.meCommander,
 		enabled: auth.isAuthenticated && Boolean(auth.user) && !auth.user?.username?.trim(),
 		refetchOnMount: 'always',
@@ -75,10 +95,7 @@ export const Layout: React.FC = () => {
 	}
 
 	if (!auth.isAuthenticated) {
-		if (isRegisterRoute) {
-			return <RegisterPage />
-		}
-		return <LoginPage />
+		return <Outlet />
 	}
 
 	const username = auth.user?.username?.trim()
@@ -112,6 +129,8 @@ export const Layout: React.FC = () => {
 							</div>
 							{perms.can('players', 'read_any') ? (
 								<SidebarItem to="/players" icon={<Users className="h-4 w-4" />} label="Players" />
+							) : perms.can('players', 'read_self') ? (
+								<SidebarItem to="/players/me" icon={<Users className="h-4 w-4" />} label="Players" />
 							) : null}
 							{perms.can('game_data', 'read_any') ? (
 								<SidebarItem to="/ships" icon={<Ship className="h-4 w-4" />} label="Ship Database" />

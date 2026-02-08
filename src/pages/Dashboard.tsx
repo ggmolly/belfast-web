@@ -31,6 +31,7 @@ export const DashboardPage: React.FC = () => {
 	const statusQuery = useQuery({
 		queryKey: ['server', 'status'],
 		queryFn: api.getServerStatus,
+		enabled: canServerRead,
 		refetchInterval: 10000,
 	})
 	const uptimeQuery = useQuery({

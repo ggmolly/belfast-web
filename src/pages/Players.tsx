@@ -182,36 +182,39 @@ export const PlayersPage: React.FC = () => {
 										</tr>
 									))}
 								</thead>
-								<tbody className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-									{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-										const row = rows[virtualRow.index]
-										return (
-											<tr
-												key={row.id}
-												className="border-t border-border hover:bg-muted/50"
-												style={{
-													position: 'absolute',
-													transform: `translateY(${virtualRow.start}px)`,
-													width: '100%',
-													display: 'table',
-												}}
-											>
-												{row.getVisibleCells().map((cell) => (
-													<td key={cell.id} className="px-4 py-3">
-														{flexRender(cell.column.columnDef.cell, cell.getContext())}
-													</td>
-												))}
-											</tr>
-										)
-									})}
-									{rows.length === 0 ? (
+								{rows.length === 0 ? (
+									<tbody>
 										<tr>
 											<td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
 												No players found.
 											</td>
 										</tr>
-									) : null}
-								</tbody>
+									</tbody>
+								) : (
+									<tbody className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+										{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+											const row = rows[virtualRow.index]
+											return (
+												<tr
+													key={row.id}
+													className="border-t border-border hover:bg-muted/50"
+													style={{
+														position: 'absolute',
+														transform: `translateY(${virtualRow.start}px)`,
+														width: '100%',
+														display: 'table',
+													}}
+												>
+													{row.getVisibleCells().map((cell) => (
+														<td key={cell.id} className="px-4 py-3">
+															{flexRender(cell.column.columnDef.cell, cell.getContext())}
+														</td>
+													))}
+												</tr>
+											)
+										})}
+									</tbody>
+								)}
 							</table>
 						</div>
 					</div>

@@ -3,12 +3,13 @@ import type React from 'react'
 import { usePermissions } from '../components/PermissionsContext'
 import { Badge } from '../components/ui/Badge'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { queryKeys } from '../lib/queryKeys'
 import { api } from '../services/api'
 
 export const MyAccessPage: React.FC = () => {
 	const perms = usePermissions()
 	const commanderQuery = useQuery({
-		queryKey: ['me', 'commander'],
+		queryKey: queryKeys.me.commander(),
 		queryFn: api.meCommander,
 		enabled: Boolean(perms.data?.roles.includes('player')),
 		retry: false,

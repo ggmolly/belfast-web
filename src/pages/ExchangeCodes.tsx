@@ -13,6 +13,7 @@ import { Input } from '../components/ui/Input'
 import { Modal } from '../components/ui/Modal'
 import { DROP_TYPES, SearchableSelect } from '../components/ui/SearchableSelect'
 import type { DropOption, DropType } from '../components/ui/SearchableSelect'
+import { queryKeys } from '../lib/queryKeys'
 import { api } from '../services/api'
 import type { ExchangeCodeRequest, ItemSummary, ShipSummary, SkinSummary } from '../types'
 
@@ -48,17 +49,17 @@ export const ExchangeCodesPage: React.FC = () => {
 		enabled: canRead,
 	})
 	const shipsCatalogQuery = useQuery({
-		queryKey: ['ships', { all: true }],
+		queryKey: queryKeys.catalog.ships(),
 		queryFn: () => api.getShips({}),
 		enabled: canRead && canGameData,
 	})
 	const itemsCatalogQuery = useQuery({
-		queryKey: ['items', { all: true }],
+		queryKey: queryKeys.catalog.items(),
 		queryFn: () => api.getItems({}),
 		enabled: canRead && canGameData,
 	})
 	const skinsCatalogQuery = useQuery({
-		queryKey: ['skins', { all: true }],
+		queryKey: queryKeys.catalog.skins(),
 		queryFn: () => api.getSkins({}),
 		enabled: canRead && canGameData,
 	})

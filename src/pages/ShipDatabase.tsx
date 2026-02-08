@@ -157,40 +157,43 @@ export const ShipDatabasePage: React.FC = () => {
 										</tr>
 									))}
 								</thead>
-								<tbody className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-									{rowVirtualizer.getVirtualItems().map((virtualRow) => {
-										const row = rows[virtualRow.index]
-										return (
-											<tr
-												key={row.id}
-												className="border-t border-border"
-												style={{
-													position: 'absolute',
-													transform: `translateY(${virtualRow.start}px)`,
-													width: '100%',
-													display: 'table',
-													tableLayout: 'fixed',
-												}}
-											>
-												{row.getVisibleCells().map((cell) => (
-													<td
-														key={cell.id}
-														className={`px-4 py-2 ${(cell.column.columnDef.meta as { cellClassName?: string } | undefined)?.cellClassName ?? ''}`}
-													>
-														{flexRender(cell.column.columnDef.cell, cell.getContext())}
-													</td>
-												))}
-											</tr>
-										)
-									})}
-									{rows.length === 0 ? (
+								{rows.length === 0 ? (
+									<tbody>
 										<tr>
 											<td colSpan={columns.length} className="px-4 py-8 text-center text-muted-foreground">
 												No ships found.
 											</td>
 										</tr>
-									) : null}
-								</tbody>
+									</tbody>
+								) : (
+									<tbody className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+										{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+											const row = rows[virtualRow.index]
+											return (
+												<tr
+													key={row.id}
+													className="border-t border-border"
+													style={{
+														position: 'absolute',
+														transform: `translateY(${virtualRow.start}px)`,
+														width: '100%',
+														display: 'table',
+														tableLayout: 'fixed',
+													}}
+												>
+													{row.getVisibleCells().map((cell) => (
+														<td
+															key={cell.id}
+															className={`px-4 py-2 ${(cell.column.columnDef.meta as { cellClassName?: string } | undefined)?.cellClassName ?? ''}`}
+														>
+															{flexRender(cell.column.columnDef.cell, cell.getContext())}
+														</td>
+													))}
+												</tr>
+											)
+										})}
+									</tbody>
+								)}
 							</table>
 						</div>
 					</div>

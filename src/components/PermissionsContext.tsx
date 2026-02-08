@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type React from 'react'
 import { createContext, useContext, useMemo } from 'react'
+import { queryKeys } from '../lib/queryKeys'
 import { api } from '../services/api'
 import type { MePermissionsResponse, PermissionOp, PermissionPolicyEntry } from '../types'
 import { useAuth } from './AuthContext'
@@ -26,7 +27,7 @@ const canFromEntry = (entry: PermissionPolicyEntry | undefined, op: PermissionOp
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const auth = useAuth()
 	const permsQuery = useQuery({
-		queryKey: ['me', 'permissions'],
+		queryKey: queryKeys.me.permissions(),
 		queryFn: api.mePermissions,
 		enabled: auth.isAuthenticated,
 		retry: false,

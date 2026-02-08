@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
+import { queryKeys } from '../lib/queryKeys'
 import { parseCreationOptions, serializeRegistrationCredential } from '../lib/webauthn'
 import { api } from '../services/api'
 
@@ -17,14 +18,14 @@ export const SecurityPage: React.FC = () => {
 	const [passkeyLoading, setPasskeyLoading] = useState(false)
 
 	const passkeysQuery = useQuery({
-		queryKey: ['auth', 'passkeys'],
+		queryKey: queryKeys.auth.passkeys(),
 		queryFn: api.getPasskeys,
 	})
 
 	const deletePasskeyMutation = useMutation({
 		mutationFn: (credentialId: string) => api.deletePasskey(credentialId),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.auth.passkeys() })
 			toast.success('Passkey removed')
 		},
 		onError: (error) => {
@@ -79,7 +80,7 @@ export const SecurityPage: React.FC = () => {
 				label: passkeyLabel || undefined,
 			})
 			setPasskeyLabel('')
-			queryClient.invalidateQueries({ queryKey: ['auth', 'passkeys'] })
+			queryClient.invalidateQueries({ queryKey: queryKeys.auth.passkeys() })
 			toast.success('Passkey registered')
 		} catch (error) {
 			toast.error('Passkey registration failed', { description: (error as Error).message })

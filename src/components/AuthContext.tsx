@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type React from 'react'
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
+import { queryKeys } from '../lib/queryKeys'
 import { api, setCsrfToken } from '../services/api'
 import type { AdminUser, AuthBootstrapRequest, AuthLoginRequest, AuthSession } from '../types'
 
@@ -22,7 +23,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const queryClient = useQueryClient()
 	const sessionQuery = useQuery({
-		queryKey: ['auth', 'session'],
+		queryKey: queryKeys.auth.session(),
 		queryFn: api.authSession,
 		retry: false,
 	})
@@ -63,8 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		mutationFn: api.authLogout,
 		onSuccess: () => {
 			setCsrfToken(null)
-			queryClient.removeQueries({ queryKey: ['auth', 'session'] })
-			queryClient.removeQueries({ queryKey: ['me', 'permissions'] })
+			queryClient.removeQueries({ queryKey: queryKeys.auth.session() })
+			queryClient.removeQueries({ queryKey: queryKeys.auth.passkeys() })
+			queryClient.removeQueries({ queryKey: queryKeys.me.permissions() })
+			queryClient.removeQueries({ queryKey: queryKeys.me.commander() })
 			toast.success('Signed out')
 		},
 		onError: (error) => {
@@ -85,32 +88,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			isLoading: sessionQuery.isLoading,
 			isAuthenticated,
 			login: async (payload) => {
-				try {
-					await loginMutation.mutateAsync(payload)
-				} catch {
-					return
-				}
+				await loginMutation.mutateAsync(payload)
 			},
 			bootstrap: async (payload) => {
-				try {
-					await bootstrapMutation.mutateAsync(payload)
-				} catch {
-					return
-				}
+				await bootstrapMutation.mutateAsync(payload)
 			},
 			logout: async () => {
-				try {
-					await logoutMutation.mutateAsync()
-				} catch {
-					return
-				}
+				await logoutMutation.mutateAsync()
 			},
 			refreshSession: async () => {
-				try {
-					await sessionQuery.refetch()
-				} catch {
-					return
-				}
+				await sessionQuery.refetch()
 			},
 		}),
 		[

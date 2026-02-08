@@ -71,7 +71,10 @@ import type {
 	UserRegistrationVerifyRequest,
 } from '../types'
 
-const API_BASE = 'http://localhost:2289/api/v1'
+const API_BASE = (() => {
+	const raw = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:2289/api/v1'
+	return raw.replace(/\/+$/, '')
+})()
 
 let csrfToken: string | null = null
 
@@ -101,17 +104,60 @@ const buildHeaders = (options?: RequestInit) => {
 	return headers
 }
 
+type ApiErrorBody = { error?: { message?: string; code?: string } }
+
+const readError = async (res: Response): Promise<{ message: string; code?: string }> => {
+	try {
+		const data = (await res.clone().json()) as ApiErrorBody
+		const message = data?.error?.message?.trim()
+		if (message) {
+			return { message, code: data?.error?.code }
+		}
+	} catch {
+		// Ignore non-JSON bodies.
+	}
+
+	try {
+		const text = (await res.text()).trim()
+		if (text) {
+			return { message: text }
+		}
+	} catch {
+		// Ignore body read failures.
+	}
+
+	return { message: 'Request failed' }
+}
+
+const readApiResponse = async <T>(res: Response): Promise<APIResponse<T>> => {
+	if (res.status === 204) {
+		return { ok: true, data: undefined as T }
+	}
+
+	try {
+		const data = (await res.json()) as APIResponse<T> & ApiErrorBody
+		return data
+	} catch {
+		const text = (await res.text()).trim()
+		if (!text) {
+			return { ok: true, data: undefined as T }
+		}
+		throw new ApiError('Unexpected response body', undefined, res.status)
+	}
+}
+
 const request = async <T>(path: string, options?: RequestInit) => {
 	const res = await fetch(`${API_BASE}${path}`, {
 		credentials: 'include',
 		headers: buildHeaders(options),
 		...options,
 	})
-	const data = (await res.json()) as APIResponse<T> & { error?: { message?: string; code?: string } }
 	if (!res.ok) {
-		throw new ApiError(data?.error?.message ?? 'Request failed', data?.error?.code, res.status)
+		const err = await readError(res)
+		throw new ApiError(err.message, err.code, res.status)
 	}
-	return data
+
+	return readApiResponse<T>(res)
 }
 
 const requestVoid = async (path: string, options?: RequestInit) => {
@@ -121,8 +167,8 @@ const requestVoid = async (path: string, options?: RequestInit) => {
 		...options,
 	})
 	if (!res.ok) {
-		const data = (await res.json()) as { error?: { message?: string; code?: string } }
-		throw new ApiError(data?.error?.message ?? 'Request failed', data?.error?.code, res.status)
+		const err = await readError(res)
+		throw new ApiError(err.message, err.code, res.status)
 	}
 }
 

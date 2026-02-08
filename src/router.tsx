@@ -3,7 +3,9 @@ import { Layout } from './components/Layout'
 import { AccessControlPage } from './pages/AccessControl'
 import { DashboardPage } from './pages/Dashboard'
 import { ExchangeCodesPage } from './pages/ExchangeCodes'
+import { LoginPage } from './pages/Login'
 import { MyAccessPage } from './pages/MyAccess'
+import { MyPlayerPage } from './pages/MyPlayer'
 import { PlayerDetailPage } from './pages/PlayerDetail'
 import { PlayersPage } from './pages/Players'
 import { RegisterPage } from './pages/Register'
@@ -31,6 +33,12 @@ const playerDetailRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: '/players/$playerId',
 	component: PlayerDetailPage,
+})
+
+const myPlayerRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/players/me',
+	component: MyPlayerPage,
 })
 
 const shipsRoute = createRoute({
@@ -75,17 +83,25 @@ const registerRoute = createRoute({
 	component: RegisterPage,
 })
 
+const loginRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/login',
+	component: LoginPage,
+})
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	myAccessRoute,
 	playersRoute,
 	playerDetailRoute,
+	myPlayerRoute,
 	shipsRoute,
 	exchangeCodesRoute,
 	systemRoute,
 	securityRoute,
 	accessControlRoute,
 	registerRoute,
+	loginRoute,
 ])
 
 export const router = createRouter({
