@@ -49,6 +49,7 @@ export const Layout: React.FC = () => {
 	const { theme, setTheme } = useTheme()
 	const auth = useAuth()
 	const perms = usePermissions()
+	const isAdminRole = Boolean(perms.data?.roles.includes('admin'))
 	const navigate = useNavigate()
 	const pathname = useRouterState({ select: (state) => state.location.pathname })
 	const isPublicRoute =
@@ -141,10 +142,11 @@ export const Layout: React.FC = () => {
 							{perms.can('exchange_codes', 'read_any') ? (
 								<SidebarItem to="/exchange-codes" icon={<Tag className="h-4 w-4" />} label="Exchange Codes" />
 							) : null}
-							{perms.can('admin.users', 'read_any') ||
-							perms.can('notices', 'read_any') ||
-							perms.can('activities', 'read_any') ||
-							perms.can('server', 'read_any') ? (
+							{isAdminRole &&
+							(perms.can('admin.users', 'read_any') ||
+								perms.can('notices', 'read_any') ||
+								perms.can('activities', 'read_any') ||
+								perms.can('server', 'read_any')) ? (
 								<SidebarItem to="/system" icon={<Settings className="h-4 w-4" />} label="System" />
 							) : null}
 							{perms.can('admin.authz', 'read_any') ? (
