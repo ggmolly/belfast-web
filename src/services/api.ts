@@ -46,6 +46,7 @@ import type {
 	PlayerListResponse,
 	PlayerResourceResponse,
 	PlayerShipResponse,
+	PlayerShipUpdateRequest,
 	PlayerSkinResponse,
 	ResourceUpdateRequest,
 	RoleListResponse,
@@ -302,6 +303,11 @@ export const api = {
 			body: JSON.stringify(payload),
 		}),
 	getPlayerShips: (id: number) => request<PlayerShipResponse>(`/players/${id}/ships`),
+	updatePlayerShip: (id: number, ownedId: number, payload: PlayerShipUpdateRequest) =>
+		request<void>(`/players/${id}/ships/${ownedId}`, {
+			method: 'PATCH',
+			body: JSON.stringify(payload),
+		}),
 	getPlayerItems: (id: number) => request<PlayerItemResponse>(`/players/${id}/items`),
 	sendMail: (id: number, payload: SendMailRequest) =>
 		request<void>(`/players/${id}/send-mail`, {

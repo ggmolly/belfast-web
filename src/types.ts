@@ -47,6 +47,10 @@ export interface PlayerShipEntry {
 	skin_id: number
 }
 
+export interface PlayerShipUpdateRequest {
+	level?: number
+}
+
 export interface PlayerShipResponse {
 	ships: PlayerShipEntry[]
 }

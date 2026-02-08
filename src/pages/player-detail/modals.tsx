@@ -592,3 +592,68 @@ export const EditInventoryModal: React.FC<{
 		</Modal>
 	)
 }
+
+export const EditShipLevelModal: React.FC<{
+	isOpen: boolean
+	onClose: () => void
+	ship: { ownedId: number; shipId: number; name: string; level: number } | null
+	onUpdate: (payload: { ownedId: number; level: number }) => Promise<unknown>
+}> = ({ isOpen, onClose, ship, onUpdate }) => {
+	const shipEditForm = useForm({
+		defaultValues: { level: ship?.level ?? 1 },
+		onSubmit: async ({ value }) => {
+			if (!ship) return
+			await onUpdate({ ownedId: ship.ownedId, level: Number(value.level) })
+			onClose()
+		},
+	})
+
+	useEffect(() => {
+		if (!isOpen) return
+		shipEditForm.reset({ level: ship?.level ?? 1 })
+	}, [isOpen, ship?.level, shipEditForm])
+
+	return (
+		<Modal isOpen={isOpen} onClose={onClose} title="Edit Ship Level">
+			<form
+				onSubmit={(event) => {
+					event.preventDefault()
+					shipEditForm.handleSubmit()
+				}}
+				className="space-y-4"
+			>
+				<div className="rounded-md border border-border bg-muted/30 p-3">
+					<div className="text-sm font-medium">{ship?.name}</div>
+					<div className="text-xs text-muted-foreground">
+						Ship ID: {ship?.shipId} • Owned ID: {ship?.ownedId}
+					</div>
+				</div>
+				<shipEditForm.Field name="level">
+					{(field) => {
+						const fieldId = 'ship-level'
+						return (
+							<div className="space-y-2">
+								<label htmlFor={fieldId} className="text-sm font-medium">
+									Level
+								</label>
+								<Input
+									id={fieldId}
+									type="number"
+									value={field.state.value}
+									onChange={(event) => field.handleChange(event.target.valueAsNumber)}
+									placeholder="1"
+								/>
+							</div>
+						)
+					}}
+				</shipEditForm.Field>
+				<div className="flex justify-end gap-2 pt-2">
+					<Button type="button" variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button type="submit">Save</Button>
+				</div>
+			</form>
+		</Modal>
+	)
+}

@@ -17,6 +17,7 @@ import {
 	EditInventoryModal,
 	EditProfileModal,
 	EditResourceModal,
+	EditShipLevelModal,
 	KickModal,
 } from './modals'
 import { ActionsTab } from './tabs/ActionsTab'
@@ -48,6 +49,7 @@ export const PlayerDetailPage: React.FC = () => {
 	const [skinShipFilter, setSkinShipFilter] = useState<number | null>(null)
 	const [inventoryEditOpen, setInventoryEditOpen] = useState(false)
 	const [resourceEditOpen, setResourceEditOpen] = useState(false)
+	const [shipEditOpen, setShipEditOpen] = useState(false)
 	const [kickModalOpen, setKickModalOpen] = useState(false)
 	const [selectedInventoryItem, setSelectedInventoryItem] = useState<{
 		itemId: number
@@ -58,6 +60,12 @@ export const PlayerDetailPage: React.FC = () => {
 		resourceId: number
 		name: string
 		amount: number
+	} | null>(null)
+	const [selectedShip, setSelectedShip] = useState<{
+		ownedId: number
+		shipId: number
+		name: string
+		level: number
 	} | null>(null)
 
 	useEffect(() => {
@@ -188,6 +196,14 @@ export const PlayerDetailPage: React.FC = () => {
 			api.updatePlayerItemQuantity(playerNumericId, payload.itemId, { quantity: payload.quantity }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.players.items(playerNumericId) })
+		},
+	})
+
+	const updateShipMutation = useMutation({
+		mutationFn: (payload: { ownedId: number; level: number }) =>
+			api.updatePlayerShip(playerNumericId, payload.ownedId, { level: payload.level }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.players.ships(playerNumericId) })
 		},
 	})
 
@@ -400,7 +416,16 @@ export const PlayerDetailPage: React.FC = () => {
 			) : null}
 
 			{activeTab === 'ships' ? (
-				<ShipsTab ships={ships} canWrite={canWrite} onAddShip={() => setAddShipOpen(true)} />
+				<ShipsTab
+					ships={ships}
+					canWrite={canWrite}
+					onAddShip={() => setAddShipOpen(true)}
+					onEditShip={(ship) => {
+						if (!canWrite) return
+						setSelectedShip({ ownedId: ship.owned_id, shipId: ship.ship_id, name: ship.name, level: ship.level })
+						setShipEditOpen(true)
+					}}
+				/>
 			) : null}
 
 			{activeTab === 'inventory' ? (
@@ -490,6 +515,16 @@ export const PlayerDetailPage: React.FC = () => {
 					setSelectedInventoryItem(null)
 				}}
 				onUpdate={(payload) => updateItemQuantityMutation.mutateAsync(payload)}
+			/>
+
+			<EditShipLevelModal
+				isOpen={shipEditOpen}
+				ship={selectedShip}
+				onClose={() => {
+					setShipEditOpen(false)
+					setSelectedShip(null)
+				}}
+				onUpdate={(payload) => updateShipMutation.mutateAsync(payload)}
 			/>
 		</div>
 	)
