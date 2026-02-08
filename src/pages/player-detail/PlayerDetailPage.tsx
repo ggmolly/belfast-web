@@ -327,7 +327,11 @@ export const PlayerDetailPage: React.FC = () => {
 
 	if (!canRead) {
 		if (canReadSelf && !canReadAny && commanderQuery.isLoading) {
-			return <div className="p-8 text-center animate-pulse">Loading…</div>
+			return (
+				<div className="p-8">
+					<div className="h-3 w-32 animate-pulse rounded bg-muted" />
+				</div>
+			)
 		}
 		return (
 			<div className="space-y-6">
@@ -352,7 +356,14 @@ export const PlayerDetailPage: React.FC = () => {
 		)
 	}
 
-	if (!player) return <div className="p-8 text-center animate-pulse">Loading player...</div>
+	if (!player) {
+		return (
+			<div className="p-8">
+				<div className="h-8 w-64 animate-pulse rounded bg-muted" />
+				<div className="mt-3 h-4 w-40 animate-pulse rounded bg-muted" />
+			</div>
+		)
+	}
 
 	return (
 		<div className="space-y-6">

@@ -31,7 +31,11 @@ export const MyAccessPage: React.FC = () => {
 								: ''}
 					</p>
 				</div>
-				{perms.isLoading ? <Badge variant="secondary">Loading…</Badge> : null}
+				{perms.isLoading ? (
+					<Badge variant="secondary">
+						<span aria-hidden className="block h-2 w-8 animate-pulse rounded bg-foreground/10" />
+					</Badge>
+				) : null}
 			</div>
 
 			<Card>

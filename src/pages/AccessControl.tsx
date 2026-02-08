@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Plus, RefreshCw, Save } from 'lucide-react'
+import { Check, Loader2, Plus, RefreshCw, Save } from 'lucide-react'
 import type React from 'react'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
@@ -309,7 +309,11 @@ export const AccessControlPage: React.FC = () => {
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-4">
-							{accountRolesQuery.isFetching ? <Badge variant="secondary">Loading…</Badge> : null}
+							{accountRolesQuery.isFetching ? (
+								<Badge variant="secondary">
+									<Loader2 className="h-3 w-3 animate-spin" />
+								</Badge>
+							) : null}
 							<div className="grid gap-2">
 								{roleNames.map((name) => {
 									const checked = rolesDraft.includes(name)
@@ -375,7 +379,11 @@ export const AccessControlPage: React.FC = () => {
 							</div>
 						</CardHeader>
 						<CardContent>
-							{accountOverridesQuery.isFetching ? <Badge variant="secondary">Loading…</Badge> : null}
+							{accountOverridesQuery.isFetching ? (
+								<Badge variant="secondary">
+									<Loader2 className="h-3 w-3 animate-spin" />
+								</Badge>
+							) : null}
 							{overridesDraft.length === 0 ? (
 								<p className="text-sm text-muted-foreground">No overrides.</p>
 							) : (

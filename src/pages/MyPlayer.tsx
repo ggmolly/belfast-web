@@ -39,7 +39,7 @@ export const MyPlayerPage: React.FC = () => {
 		return (
 			<div className="space-y-4">
 				<h1 className="text-3xl font-bold tracking-tight">Player</h1>
-				<p className="text-sm text-muted-foreground">Redirecting to players…</p>
+				<div className="h-3 w-40 animate-pulse rounded bg-muted" />
 			</div>
 		)
 	}
@@ -57,7 +57,7 @@ export const MyPlayerPage: React.FC = () => {
 		return (
 			<div className="space-y-4">
 				<h1 className="text-3xl font-bold tracking-tight">Player</h1>
-				<p className="text-sm text-muted-foreground">Loading…</p>
+				<div className="h-3 w-32 animate-pulse rounded bg-muted" />
 			</div>
 		)
 	}
@@ -74,7 +74,7 @@ export const MyPlayerPage: React.FC = () => {
 	return (
 		<div className="space-y-4">
 			<h1 className="text-3xl font-bold tracking-tight">Player</h1>
-			<p className="text-sm text-muted-foreground">Loading…</p>
+			<div className="h-3 w-32 animate-pulse rounded bg-muted" />
 		</div>
 	)
 }

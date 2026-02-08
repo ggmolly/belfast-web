@@ -88,7 +88,6 @@ export const Layout: React.FC = () => {
 			<div className="flex min-h-screen items-center justify-center bg-background text-foreground">
 				<div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
 					<div className="h-2 w-24 animate-pulse rounded-full bg-muted" />
-					<span>Loading secure session...</span>
 				</div>
 			</div>
 		)
