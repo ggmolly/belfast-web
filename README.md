@@ -1,3 +1,7 @@
+# deprecation notice
+
+see [belfast's repo which embeds a web ui now](https://github.com/ggmolly/belfast)
+
 # belfast-web
 
 a basic react front-end for [belfast](https://github.com/ggmolly/belfast).
